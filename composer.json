@@ -1,0 +1,26 @@
+{
+    "name": "alienproject/pdfreport",
+    "description": "A library that allows you to generate PDF reports from an XML template describing the document, with placeholders for data",
+    "type": "library",
+    "license": "LGPL-3.0-or-later",
+	"version": "1.0.0",
+    "authors": [
+        {
+            "name": "Alien Project Team",
+            "email": "contact@alienproject.org"
+        }
+    ],
+    "require": {
+        "php": ">=8.0",
+        "tecnickcom/tcpdf": "^6.9"
+    },
+    "autoload": {
+        "psr-4": {
+            "AlienProject\\PDFReport\\": "src/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "keywords": ["pdf", "report", "xml", "tcpdf", "alienproject", "template"],
+    "homepage": "https://github.com/max-brugnerotto/pdfreport"
+}
