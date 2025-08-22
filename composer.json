@@ -22,5 +22,11 @@
     "minimum-stability": "stable",
     "prefer-stable": true,
     "keywords": ["pdf", "report", "xml", "tcpdf", "alienproject", "template"],
-    "homepage": "https://github.com/max-brugnerotto/pdfreport"
+    "homepage": "https://github.com/alienproject-org/alienproject",
+	"funding": [
+        {
+            "type": "paypal",
+            "url": "https://www.paypal.com/paypalme/maxbrugne/10"
+        }
+    ]
 }
