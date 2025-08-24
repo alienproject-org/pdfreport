@@ -3,25 +3,11 @@ namespace AlienProject\PDFReport;
 use TCPDF;
 /*
  * Requirements:
- * PHP Version 8.2 or greater
- *
- * 1) Install TCPDF library:
- * composer require tecnickcom/tcpdf
- * 2) Manually copy the class to \vendor\alienproject\pdfreport\pdfreport.php
- * 3) Manually modify the composer.json file by adding the references for the class
- *     "autoload": {
- *          "psr-4": {
- *              "\\AlienProject\\PDFReport\\": "vendor/alienproject/pdfreport/"
- *          }
- *      }
- * Pay attention to the mapping between the namespace and the folder containing the class
- * 4) Regenerate the autoloader with the command
- * composer dump-autoload
- *
- * Note:
- * https://github.com/maantje/charts       Interesting library to generate graphs in SVG format (which can then be loaded into a PDF with the ImageSVG method)
+ * - PHP Version 8.2 or greater
+ * - TCPDF php library
  * 
  * https://tcpdf.org/docs/srcdoc/TCPDF/classes-TCPDF/       TCPDF ver.6.10.0 online help 
+ *
  */
 
 /**
@@ -187,12 +173,13 @@ class PDFReport
         $sec->row_height = $this->LoadValue($section, 'row_height', $sec->row_height);      // Height of a single row. Each time a new data row is read, a new print row is added until the y_end or rows_count condition is reached.
         $sec->y_end = $this->LoadValue($section, 'y_end', $sec->y_end);                     // Maximum section height. If the printed sequence of lines (rows) exceeds this, a page break is performed.
         $sec->rows_count = $this->LoadValue($section, 'rows_count', $sec->rows_count);      // Maximum lines (rows) per page counter. Alternative to y_end. When one of the two conditions is met, a page break is performed.
-        $page = $this->LoadValue($section, 'page', '');                                     // Eg. "A4,P" : Create a new page while section starts, format "A4", orientation "P-portrait"
-        if (strlen($page) > 0) {
-            $pageSetup = explode(',', $page);
-            $this->page->Initialize($pageSetup[0] ?? $this->page->format, $pageSetup[1] ?? $this->page->orientation, $pageSetup[2] ?? $this->page->unit);
-            $sec->page = $this->page;
+        
+        // Section page (optional, if set a new page is created each time a new section starts)
+        $section_page_node = $this->LoadNode($section, 'page', []);      
+        if (count($section_page_node) > 0) {
+            $sec->page = $this->ProcessPage('', $section_page_node, false);
         }
+
         if (is_null($sec->row)) {
             $sec->setQuery($this->ReplaceTags($sec->getQueryRaw()));
             $sec->ExecuteQuery();
@@ -482,20 +469,30 @@ class PDFReport
             throw new \Exception('PDFReport.BuildReport() : Missing XML template. Use LoadTemplate or SetTemplate before to run this method.');
         }
         $template = $this->template;
-        
+                
         // Load the "default_page" block and initialize the PDF document
 		if ($this->ValueExists($template, 'default_page')) {
-			$default = $this->LoadNode($template, 'default_page', []);
-			$this->page->Initialize($default['format'] ?? 'A4', $default['orientation'] ?? 'P', $default['unit'] ?? 'mm');
+			$default_page_node = $this->LoadNode($template, 'default_page', []);
+			$this->page->Initialize($this->LoadValue($default_page_node, 'format', 'A4'), 
+                                    $this->LoadValue($default_page_node, 'orientation', 'P'), 
+                                    $this->LoadValue($default_page_node, 'unit', 'mm'), 
+                                    $this->LoadValue($default_page_node, 'width', 210), 
+                                    $this->LoadValue($default_page_node, 'height', 297));
 		}
+        
+        // Initiliza TCPDF with standard page size or custom page size
+        $page_format = $this->page->format;
+        if ($this->page->format == 'C') {
+            // Custom page size
+            $page_format = [ $this->page->width, $this->page->height ];
+        }
         $this->pdf = new TCPDF(
             $this->page->orientation,
             $this->page->unit,
-            $this->page->format,
+            $page_format,
             true,
             'UTF-8',
-            false
-        );
+            false);
         
         $this->pdf->setAutoPageBreak(false); 
         
@@ -654,7 +651,8 @@ class PDFReport
                     // TODO : Process all attributes
                     break;
                 case 'page':
-                    $this->ProcessPage($key, $element);
+                    // Add a new page to the document
+                    $this->ProcessPage($key, $element, true);
                     break;
                 case 'line':
                     $this->ProcessLine($key, $element, $x_offset, $y_offset);
@@ -762,13 +760,20 @@ class PDFReport
      * @access private
      * @param string $key			        Element key
      * @param string $element			    Associative array element with page settings
-     * @return void                         No return
+     * @return PDFPageSettings              Returns the PDFPageSettings object (if a setting is not found, the default page setting will be used)
      */
-	private function ProcessPage($key, $element)
+	private function ProcessPage($key, $element, $addPageToDocument = true)
 	{
-		$this->page->orientation = $this->LoadValue($element, 'orientation', $this->page->orientation);
-		$this->page->format = $this->LoadValue($element, 'format', $this->page->format);
-		$this->PdfAddPage($this->page);
+        $format = $this->LoadValue($element, 'format', $this->page->format);
+		$orientation = $this->LoadValue($element, 'orientation', $this->page->orientation);
+		$unit = $this->LoadValue($element, 'unit', $this->page->unit);
+        $width = $this->LoadValue($element, 'width', $this->page->width);                       // width and height for custom format
+        $height = $this->LoadValue($element, 'height', $this->page->height);
+        $page = new PDFPageSettings($format, $orientation, $unit, $width, $height);
+        if ($addPageToDocument) {
+            $this->PdfAddPage($page);
+        }
+        return $page;
 	}
 
     // ***************************
@@ -1731,7 +1736,7 @@ class PDFReport
                 return $element;
             }
         }
-		if ($default != null) return $default;
+		if ($default != null || is_array($default)) return $default;
         if (!array_key_exists($nodeKey, $template)) {
             // Error : The node is missing
             throw new \Exception('PDFReport.LoadNode() : Missing XML node element [' . $nodeKey . ']');
