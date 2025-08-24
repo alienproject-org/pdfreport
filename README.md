@@ -157,4 +157,8 @@ By accessing the reserved area, you can interactively run the example reports pr
 
 ---
 
+<<<<<<< HEAD
 For more information and examples, visit the main project website: https://alienproject.org
+=======
+For more information and examples, visit the main project website: https://alienproject.org
+>>>>>>> 81b632fb6f874482624b6d7f5ffb71a73ce886be

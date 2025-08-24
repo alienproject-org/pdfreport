@@ -483,9 +483,9 @@ class PDFReport
         }
         $template = $this->template;
         
-        // Load the "default" block and initialize the PDF document
-		if ($this->ValueExists($template, 'default')) {
-			$default = $this->LoadNode($template, 'default', []);
+        // Load the "default_page" block and initialize the PDF document
+		if ($this->ValueExists($template, 'default_page')) {
+			$default = $this->LoadNode($template, 'default_page', []);
 			$this->page->Initialize($default['format'] ?? 'A4', $default['orientation'] ?? 'P', $default['unit'] ?? 'mm');
 		}
         $this->pdf = new TCPDF(
@@ -499,8 +499,8 @@ class PDFReport
         
         $this->pdf->setAutoPageBreak(false); 
         
-		if ($this->ValueExists($template, 'info')) {
-			$info = $this->LoadNode($template, 'info', []);
+		if ($this->ValueExists($template, 'doc_info')) {
+			$info = $this->LoadNode($template, 'doc_info', []);
 			$this->pdf->SetCreator($this->ReplaceTags($this->LoadValue($info, 'creator')));
 			$this->pdf->SetAuthor($this->ReplaceTags($this->LoadValue($info, 'author')));
 			$this->pdf->SetTitle($this->ReplaceTags($this->LoadValue($info, 'title')));
@@ -512,7 +512,7 @@ class PDFReport
         $this->pdf->setFontSize($this->font->size);
 
         // $this->pdf->SetMargins(PDF_MARGIN_LEFT, 1, PDF_MARGIN_RIGHT);
-        $this->pdf->setPrintHeader(false);      // Disattiva intestazioni automatiche
+        $this->pdf->setPrintHeader(false);      // Disable automatic headers
         $this->pdf->setPrintFooter(false);
 
         // Load "content" blocks
