@@ -101,16 +101,22 @@ Create an XML file in the root folder with the following code:
         <author>#MBR</author>
         <title>Hello World</title>
     </info>
-    <section id="main" page="A5,L">
+    <section id="main">
+		<!-- Create a new page with the following settings when this section starts -->
+        <page format="A5" orientation="L"/>
+		
+		<!-- Print content -->
         <print_content>hello</print_content>
-        <o>
+		
+		<!-- save to file -->
+        <output>
             <dest>F</dest>
-            <n>page_sample_01.pdf</n>
+            <name>page_sample_01.pdf</name>
             <isUTF8>true</isUTF8>
-        </o>
+        </output>
     </section>
     <content id="hello">
-        <!-- *** start *** -->
+        <!-- *** Print a single box : start *** -->
         <box x1="10" y1="60" x2="200" y2="85">
             <text>{HELLO_MESSAGE}</text>
             <textvertalign>Center</textvertalign>
@@ -126,7 +132,7 @@ Create an XML file in the root folder with the following code:
                 <fontcolor>FFFFFF</fontcolor>
             </font>
         </box>
-        <!-- *** end *** -->
+        <!-- *** Print box : end *** -->
     </content>
 </pdf>
 ```
@@ -157,8 +163,4 @@ By accessing the reserved area, you can interactively run the example reports pr
 
 ---
 
-<<<<<<< HEAD
 For more information and examples, visit the main project website: https://alienproject.org
-=======
-For more information and examples, visit the main project website: https://alienproject.org
->>>>>>> 81b632fb6f874482624b6d7f5ffb71a73ce886be
