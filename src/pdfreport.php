@@ -99,6 +99,27 @@ class PDFReport
     // ***************************
 
     /**
+     * Set all variabile key (UPPERCASE) and value from an associate array. The variable key will be dinamically replaced by it's value in the report. Eg. {MYLABEL} -> "Hello word!"
+     * 
+     * @access public
+     * @param string $varkey                Variable key, UPPERCASE format, without {}
+     * @param object $varvalue              Variable value
+     * @param bool $overwrite               true : if var exits overwrite it, false : if var exit do not change var value
+     * @return bool                         True when variabile is been recorded successfully, false otherwise
+     */
+    public function SetVars(array $varkeyValueList, bool $overwrite = true)
+    {
+        $okCount = 0;
+        foreach ($varkeyValueList as $varkey => $varvalue) {
+            if ($this->SetVar($varkey, $varvalue, $overwrite))
+                $okCount++;
+        }
+        return ($okCount == count($varkeyValueList));
+    }
+
+    // ***************************
+
+    /**
      * Set for a section the query used to retrive data for the report (using ? placeholders 
      * for arguments parameters) and the query parameters array
      * 
@@ -498,11 +519,11 @@ class PDFReport
         
 		if ($this->ValueExists($template, 'doc_info')) {
 			$info = $this->LoadNode($template, 'doc_info', []);
-			$this->pdf->SetCreator($this->ReplaceTags($this->LoadValue($info, 'creator')));
-			$this->pdf->SetAuthor($this->ReplaceTags($this->LoadValue($info, 'author')));
-			$this->pdf->SetTitle($this->ReplaceTags($this->LoadValue($info, 'title')));
-			$this->pdf->SetSubject($this->ReplaceTags($this->LoadValue($info, 'subject')));
-			$this->pdf->SetKeywords($this->ReplaceTags($this->LoadValue($info, 'keywords')));
+			$this->pdf->SetCreator($this->LoadValue($info, 'creator', '', false, true));
+			$this->pdf->SetAuthor($this->LoadValue($info, 'author', '', false, true));
+			$this->pdf->SetTitle($this->LoadValue($info, 'title', '', false, true));
+			$this->pdf->SetSubject($this->LoadValue($info, 'subject', '', false, true));
+			$this->pdf->SetKeywords($this->LoadValue($info, 'keywords', '', false, true));
 		}
 		
 
@@ -591,7 +612,9 @@ class PDFReport
                         break;
                     case 'var':
                     case 'setvar':
+                    case 'set_var':
                         $this->ProcessVar($key, $element);
+                        break;
                     default:
                         // Error
                         throw new \Exception('PDFReport.ProcessSection() : Unsupported XML section element [' . $key . ']');
@@ -705,6 +728,7 @@ class PDFReport
                     break;
                 case 'var':
                 case 'setvar':
+                case 'set_var':
                     $this->ProcessVar($key, $element);
                     break;
                 default:
@@ -864,7 +888,7 @@ class PDFReport
 		}
 		
 		// Text
-		$text = $this->LoadValue($element, 'text', '');
+		$text = $this->LoadValue($element, 'text', '', false, true);        // {xxx}
 		if (is_array($text)) 
 			$text = '';
 		
@@ -1191,17 +1215,17 @@ class PDFReport
                 $dtlist = $this->datalist[$datalistId]; 
             if ($dtlist != null && is_array($dataList) && count($dataList) > 0) {
                 $data = $this->LoadValue($dataList, 'data', [], true);
-                $label = $this->LoadValue($data, 'label', '', true);
-                $value = $this->LoadValue($data, 'value', 0, true);
-                $color = $this->LoadValue($data, 'color', '', true);
+                $label = $this->LoadValue($data, 'label', '', true, true);      // label, value, color {xxx}
+                $value = $this->LoadValue($data, 'value', 0, true, true);
+                $color = $this->LoadValue($data, 'color', '', true, true);
                 // It cycles through the possible values and replaces the {xxx} placeholders with data loaded from the database
                 $dtlist->Reset();
                 if ($dtlist->ExecuteQuery() > 0) {
                     while (!$dtlist->EndOfData()) {
-                        $item = new PDFChartItem($this->ReplaceTags($label),
-                                                $this->ReplaceTags($value), 
+                        $item = new PDFChartItem($label,
+                                                $value, 
                                                 0, 
-                                                new PDFFillSettings('S', $this->ReplaceTags($color)));
+                                                new PDFFillSettings('S', $color));
                         $dataItems[] = $item;
                         $dtlist->NextRecord();
                     }
@@ -1317,8 +1341,7 @@ class PDFReport
         if ($opacity > 1.0) $opacity = 1.0;
 
         // Title text
-        $title = $this->LoadValue($element, 'title', '');
-		$title = $this->ReplaceTags($title);
+        $title = $this->LoadValue($element, 'title', '', true);
         
         // Font for title and labels (optional, use default font if custom font if not set)
 		$font = $this->font;
@@ -1426,8 +1449,7 @@ class PDFReport
 		$this->barcode->height = $this->LoadValue($element, 'height', $this->barcode->height);
 		$this->barcode->align = $this->LoadValue($element, 'align', $this->barcode->align);
 		$this->barcode->type = $this->LoadValue($element, 'type', $this->barcode->type);
-		$value = $this->LoadValue($element, 'value', $this->barcode->value);
-		$value = $this->ReplaceTags($value);
+		$value = $this->LoadValue($element, 'value', $this->barcode->value, true);              // {xxx}
 		$this->barcode->value = $value; 
 		$this->pdf->write1DBarcode($this->barcode->value, $this->barcode->type, 
 								   $this->barcode->x, $this->barcode->y, $this->barcode->width, $this->barcode->height, $this->barcode->xres,
@@ -1505,8 +1527,8 @@ class PDFReport
         */
         
 		$type = trim(strtoupper($this->LoadValue($element, 'type', $this->fill->type)));
-		$rgbColor1 = $this->LoadValue($element, 'startcolor|color|color1', $this->fill->rgbColor1, true);        // startcolor : Required!
-		$rgbColor2 = $this->LoadValue($element, 'endcolor|color2', $this->fill->rgbColor2);
+		$rgbColor1 = $this->LoadValue($element, 'startcolor|color|color1', $this->fill->rgbColor1, true, true);         // startcolor. Required always. {xxx}
+		$rgbColor2 = $this->LoadValue($element, 'endcolor|color2', $this->fill->rgbColor2, false, true);                // endcolor (for gradient) {xxx}
 		$fillSettings = new PDFFillSettings($type, $rgbColor1, $rgbColor2);
         if ($applySettings) {
             if ($fillSettings->type == 'S') {
@@ -1524,7 +1546,7 @@ class PDFReport
     // ***************************
 	
     /**
-     * Set a variable value by it'sname (only if not exists)
+     * Set a variable value by it's name (if exists, only when overwrite = 1, Y, Yes, T, True)
      * 
      * @access private
      * @param string $key			        Element key
@@ -1533,9 +1555,12 @@ class PDFReport
      */
 	private function ProcessVar($key, $element)
 	{
-		$name = $this->LoadValue($element, 'name', '', true);       // Name and value are required
+		$name = $this->LoadValue($element, 'name', '', true);                   // Name and value are required
 		$value = $this->LoadValue($element, 'value', '', true);
-		$this->SetVar($name, $value, false);
+        $overwrite = $this->LoadValue($element, 'overwrite', 'Yes', false);
+        $true_values = ['1', 'y', 'yes', 't', 'true'];
+        $overwriteAsBool = in_array(strtolower($overwrite), $true_values);
+		$this->SetVar($name, $value, $overwriteAsBool);
 	}
 
     // ***************************
@@ -1591,8 +1616,6 @@ class PDFReport
         $this->pdf->setXY($x1, $y1);
         $width = abs($x2 - $x1);
         $height = abs($y2 - $y1);
-
-        $text = $this->ReplaceTags($text);
 
 		$lineUpdated = false;
 		if ($line != null && !$this->line->IsEqualTo($line)) {
@@ -1700,16 +1723,6 @@ class PDFReport
 
     // ***************************
 
-    private function PdfCell(float $x1, float $y1, float $x2, float $y2, string $text)
-    {
-        $this->pdf->setXY($x1, $y1);
-        $width = abs($x2 - $x1);
-        $height = abs($y2 - $y1);
-        $this->pdf->Cell($width, $height, $this->ReplaceTags($text), 1);
-    }
-
-    // ***************************
-
     private function LoadAllContents($template)
     {
         $contents = [];
@@ -1780,7 +1793,7 @@ class PDFReport
 	/**
 	 * $nodeKey		eg. "color", "width|linewidth", ..
 	 */
-    private function LoadValue($template, $nodeKey, $default = '', $required = false)
+    private function LoadValue($template, $nodeKey, $default = '', $required = false, $doReplaceTags = false)
     {
         if (is_array($template)) {
             foreach ($template as $key => $element) {
@@ -1791,8 +1804,13 @@ class PDFReport
 						if (is_array($element) && count($element) == 0)
 							// Empty value, return default
 							return $default;
-						else
-							return $element;
+						else {
+                            // Found target element
+                            if ($doReplaceTags)
+                                return $this->ReplaceTags($element);
+                            else
+                                return $element;
+                        }
 					}
 				}
             }
