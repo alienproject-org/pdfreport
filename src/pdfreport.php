@@ -99,13 +99,12 @@ class PDFReport
     // ***************************
 
     /**
-     * Set all variabile key (UPPERCASE) and value from an associate array. The variable key will be dinamically replaced by it's value in the report. Eg. {MYLABEL} -> "Hello word!"
+     * Set all variabile key (UPPERCASE) and value from an associate array. The variable key will be dinamically replaced in the report by it's value. Eg. {MYLABEL} -> "Hello word!"
      * 
      * @access public
-     * @param string $varkey                Variable key, UPPERCASE format, without {}
-     * @param object $varvalue              Variable value
+     * @param array $varkeyValueList        Associative array : key (var name) > value (var value)). Variable key : UPPERCASE format, without {}
      * @param bool $overwrite               true : if var exits overwrite it, false : if var exit do not change var value
-     * @return bool                         True when variabile is been recorded successfully, false otherwise
+     * @return bool                         True when all variabiles are been recorded successfully, false otherwise
      */
     public function SetVars(array $varkeyValueList, bool $overwrite = true)
     {
@@ -681,9 +680,8 @@ class PDFReport
                     $this->ProcessLine($key, $element, $x_offset, $y_offset);
                     break;
                 case 'text':
-					// Deprecated : replaced by box which has many more features
-                    break;
                 case 'box':
+                    // text (alias of box)
                     $this->ProcessBox($key, $element, $x_offset, $y_offset);
                     break;
                 case 'rectangle':
@@ -752,8 +750,8 @@ class PDFReport
 	private function ProcessOutput($key, $element)
 	{
 		$fname = 'document_' . date('Ymd_His') . '.pdf';
-		$fname = $this->LoadValue($element, 'name|filename', $fname);
-		$dest = $this->LoadValue($element, 'dest|destination', 'I');
+		$fname = $this->LoadValue($element, 'name|filename', $fname, true, true);
+		$dest = strtoupper($this->LoadValue($element, 'dest|destination', 'I'));
 		$this->pdf->Output($fname, $dest);
 	}
 	
@@ -1215,13 +1213,15 @@ class PDFReport
                 $dtlist = $this->datalist[$datalistId]; 
             if ($dtlist != null && is_array($dataList) && count($dataList) > 0) {
                 $data = $this->LoadValue($dataList, 'data', [], true);
-                $label = $this->LoadValue($data, 'label', '', true, true);      // label, value, color {xxx}
-                $value = $this->LoadValue($data, 'value', 0, true, true);
-                $color = $this->LoadValue($data, 'color', '', true, true);
                 // It cycles through the possible values and replaces the {xxx} placeholders with data loaded from the database
                 $dtlist->Reset();
                 if ($dtlist->ExecuteQuery() > 0) {
                     while (!$dtlist->EndOfData()) {
+
+                        $label = $this->LoadValue($data, 'label', '', true, true);      // label, value, color {xxx}
+                        $value = $this->LoadValue($data, 'value', 0, true, true);
+                        $color = $this->LoadValue($data, 'color', '', true, true);
+
                         $item = new PDFChartItem($label,
                                                 $value, 
                                                 0, 
@@ -1341,7 +1341,7 @@ class PDFReport
         if ($opacity > 1.0) $opacity = 1.0;
 
         // Title text
-        $title = $this->LoadValue($element, 'title', '', true);
+        $title = $this->LoadValue($element, 'title', '', false);
         
         // Font for title and labels (optional, use default font if custom font if not set)
 		$font = $this->font;
@@ -1449,7 +1449,7 @@ class PDFReport
 		$this->barcode->height = $this->LoadValue($element, 'height', $this->barcode->height);
 		$this->barcode->align = $this->LoadValue($element, 'align', $this->barcode->align);
 		$this->barcode->type = $this->LoadValue($element, 'type', $this->barcode->type);
-		$value = $this->LoadValue($element, 'value', $this->barcode->value, true);              // {xxx}
+		$value = $this->LoadValue($element, 'value', $this->barcode->value, true, true);              // {xxx}
 		$this->barcode->value = $value; 
 		$this->pdf->write1DBarcode($this->barcode->value, $this->barcode->type, 
 								   $this->barcode->x, $this->barcode->y, $this->barcode->width, $this->barcode->height, $this->barcode->xres,

@@ -26,7 +26,7 @@ class PDFReportSection
     public ?array $row = null;                          // Current row data (associative array : fieldname => value) or NULL (end of data)
 
     public $y_start = 0.0;                              // Y (mm) start position on the page 
-    public $row_height = 6.0;                           // Row height (mm)
+    public $row_height = 0.0;                           // Row height (mm)
     public $y_end = 296.0;                              // Y (mm) end position on the page (296 mm : A4 page format). If [(row_height * lineIndex) >= y_end] a page break is performed.
     public $rows_count = 1;
     public ?PDFPageSettings $page = null;               // Page settings

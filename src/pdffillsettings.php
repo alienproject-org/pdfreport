@@ -55,7 +55,7 @@ class PDFFillSettings
         
         // Make sure the string is 6 characters long
         if (strlen($hexColor) !== 6) {
-            throw new \InvalidArgumentException('PDFReport.hexToRgbArray : The color must be expressed in hexadecimal format, 6 characters long');
+            throw new \InvalidArgumentException('PDFReport.hexToRgbArray : The color must be expressed in hexadecimal format, 6 characters long (' . $hexColor . ')');
         }
         
         // Extracts the red, green and blue components
