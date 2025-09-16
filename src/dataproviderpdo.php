@@ -5,6 +5,11 @@ namespace AlienProject\PDFReport;
 use PDO;
 use PDOStatement;
 
+/**
+ * PDO data provider interface
+ * 
+ * @version  	1.0.1 - 16/09/2025
+ */
 class DataProviderPDO implements DataProviderInterface
 {
     private PDO $pdo;

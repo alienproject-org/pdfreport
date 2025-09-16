@@ -139,7 +139,10 @@ Create an XML file in the root folder with the following code:
 
 ## Version History
 
-**Last version: 1.0.0 - Aug. 2025**
+**Last version: 1.0.1 - Sep. 2025**
+
+### Ver. 1.0.1 - Sep. 2025
+- Minor fix and updates
 
 ### Ver. 1.0.0 - Aug. 2025
 - First release
@@ -165,4 +168,4 @@ By accessing the reserved area, you can interactively run the example reports pr
 
 For more information and examples, visit the main project website: https://alienproject.org
 
-Last update: 15 Sep. 2025 
+Last document update: 16 Sep. 2025 

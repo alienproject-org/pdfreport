@@ -1,10 +1,11 @@
 <?php
 namespace AlienProject\PDFReport;
-use TCPDF;
 
 /**
  * PDFLog Static class
  * - Enable LOG to file for live debugging
+ * 
+ * @version  	1.0.1 - 16/09/2025
  */
 class PDFLog
 {

@@ -7,13 +7,7 @@ use TCPDF; // Assuming TCPDF is still used for PDF generation context
 /**
  * PDFDatalist Class
  *
- * @package  	PDFReport - Library for generating PDF documents based on XML template
- * @version  	1.0.0 - 12/08/2025							            Version number and date of last release
- * @category    PHP Class Library
- * @copyright 	2025 - Alien Project
- * @license 	https://alienproject.org/license/			            GNU license for this package
- * @author   	MaxBR8 <contact@alienproject.org>
- * @access   	public
+ * @version  	1.0.1 - 16/09/2025
  */
 class PDFDatalist
 {

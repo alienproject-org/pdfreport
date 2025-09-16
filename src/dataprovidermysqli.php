@@ -6,6 +6,11 @@ use mysqli;
 use mysqli_stmt;
 use mysqli_result;
 
+/**
+ * MySQLi data provider interface
+ * 
+ * @version  	1.0.1 - 16/09/2025
+ */
 class DataProviderMySQLi implements DataProviderInterface
 {
     private mysqli $mysqli;

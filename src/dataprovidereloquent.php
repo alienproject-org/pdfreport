@@ -11,6 +11,8 @@ use Illuminate\Support\LazyCollection;
  * Eloquent Data Provider (for Laravel)
  * For Eloquent, you'll pass an Eloquent Builder instance.
  * 
+ * @version  	1.0.1 - 16/09/2025
+ * 
  * Usage example:
  * Using existing Eloquent Builder 
  *  $builder = User::where('active', true)->orderBy('name');

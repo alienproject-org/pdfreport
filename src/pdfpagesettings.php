@@ -1,10 +1,10 @@
 <?php
 namespace AlienProject\PDFReport;
-use TCPDF;
 
 /**
  * PDFPageSettings class
  *
+ * @version  	1.0.1 - 16/09/2025
  */
 class PDFPageSettings
 {

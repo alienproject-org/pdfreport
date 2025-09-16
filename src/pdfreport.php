@@ -16,10 +16,10 @@ use TCPDF;
  * PDF report generation based on XML template
  * 
  * @package  	PDFReport - Library for generating PDF documents based on XML template
- * @version  	1.0.0 - 12/08/2025							            Version number and date of last release
+ * @version  	1.0.1 - 16/09/2025
  * @category    PHP Class Library
  * @copyright 	2025 - Alien Project
- * @license 	https://alienproject.org/license/			            GNU license for this package
+ * @license 	https://alienproject.org/index/gnu_lgpl
  * @author   	MaxBR8 <contact@alienproject.org>
  * @access   	public
  * 
@@ -28,7 +28,7 @@ use TCPDF;
  */
 class PDFReport
 {
-	public string $version = '1.0.0 - 12/08/2025';
+	public string $version = '1.0.1 - 16/09/2025';
     public string $xmlTemplateFileName = '';        // Transformations : XML template file name -> XML template string -> Template array
     public string $xmlTemplate = '';                // XML template string
     private $template = null;                       // Template (array format) extracted from the XML template string

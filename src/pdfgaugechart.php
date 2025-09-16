@@ -3,6 +3,8 @@ namespace AlienProject\PDFReport;
 
 /**
  * Gauge chart class
+ * 
+ * @version  	1.0.1 - 16/09/2025
  */
 class PDFGaugeChart {
     

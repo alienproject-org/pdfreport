@@ -4,6 +4,8 @@ use TCPDF;
 
 /**
  * Class for managing axis with labels to be linked to a graph
+ * 
+ * @version  	1.0.1 - 16/09/2025
  */
 class PDFGraphAxis
 {    

@@ -1,5 +1,10 @@
 <?php 
 
+/**
+ * Gauge chart
+ * 
+ * @version  	1.0.1 - 16/09/2025
+ */
 class GaugeChart
 {
 	public $value = 0.0;

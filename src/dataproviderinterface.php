@@ -2,6 +2,11 @@
 
 namespace AlienProject\PDFReport;
 
+/**
+ * Generic data provider interface
+ * 
+ * @version  	1.0.1 - 16/09/2025
+ */
 interface DataProviderInterface
 {
     /**

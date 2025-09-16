@@ -4,6 +4,8 @@ use TCPDF;
 
 /**
  * Class for managing the configuration of a chart axis with labels
+ * 
+ * @version  	1.0.1 - 16/09/2025
  */
 class PDFAxisSettings 
 {    

@@ -3,6 +3,8 @@ namespace AlienProject\PDFReport;
 
 /**
  * Class that defines the settings to be used in a graph if the value to be displayed falls within the specified range (minimum and maximum)
+ * 
+ * @version  	1.0.1 - 16/09/2025
  */
 class PDFChartSegment {
     
