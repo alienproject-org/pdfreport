@@ -1,9 +1,11 @@
 <?php
+
 namespace AlienProject\PDFReport;
 
 /**
  * PDFLineSettings class
  *
+ * File :       PDFLineSettings.php
  * @version  	1.0.2 - 04/10/2025
  */
 class PDFLineSettings

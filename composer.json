@@ -1,5 +1,5 @@
 {
-    "name": "alienproject/pdfreport",
+    "name": "alienproject/pdfreport", 
     "description": "A library that allows you to generate PDF reports from an XML template describing the document, with placeholders for data.",
     "type": "library",
     "license": "LGPL-3.0-or-later",

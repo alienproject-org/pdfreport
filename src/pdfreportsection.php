@@ -2,14 +2,13 @@
 
 namespace AlienProject\PDFReport;
 
-use TCPDF; // Assuming TCPDF is still used for PDF generation context
-
 /**
  * PDFReportSection class
  *
  * This class defines a section of the report that can be cycled by the report generation engine to perform the same processing on a set of data of the same type
  * (for example the lines of an invoice)
  *
+ * File :       PDFReportSection.php
  * @version  	1.0.2 - 04/10/2025
  */
 class PDFReportSection

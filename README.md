@@ -194,7 +194,7 @@ By accessing the reserved area, you can interactively run the example reports pr
 - **Google Authentication** (if you have a Google account)
 - **Classic registration** with email address (a confirmation email will be sent to the specified address with a link to confirm the subscription)
 
----
+-----
 
 For more information and examples, visit the main project website: https://alienproject.org
 

@@ -1,5 +1,4 @@
 <?php
-// file : DataProviderEloquent.php
 
 namespace AlienProject\PDFReport;
 
@@ -11,6 +10,7 @@ use Illuminate\Support\LazyCollection;
  * Eloquent Data Provider (for Laravel)
  * For Eloquent, you'll pass an Eloquent Builder instance.
  * 
+ * File :       DataProviderEloquent.php
  * @version  	1.0.2 - 04/10/2025
  * 
  * Usage example:

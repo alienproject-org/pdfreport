@@ -2,11 +2,10 @@
 
 namespace AlienProject\PDFReport;
 
-use TCPDF; // Assuming TCPDF is still used for PDF generation context
-
 /**
  * PDFDatalist Class
  *
+ * File :       PDFDatalist.php
  * @version  	1.0.2 - 04/10/2025
  */
 class PDFDatalist

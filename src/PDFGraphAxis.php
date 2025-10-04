@@ -1,10 +1,11 @@
 <?php
+
 namespace AlienProject\PDFReport;
-use TCPDF;
 
 /**
  * Class for managing axis with labels to be linked to a graph
  * 
+ * File :       PDFGraphAxis.php
  * @version  	1.0.2 - 04/10/2025
  */
 class PDFGraphAxis

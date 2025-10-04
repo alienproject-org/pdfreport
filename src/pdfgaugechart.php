@@ -1,9 +1,11 @@
 <?php
+
 namespace AlienProject\PDFReport;
 
 /**
  * Gauge chart class
  * 
+ * File :       PDFGaugeChart.php
  * @version  	1.0.2 - 04/10/2025
  */
 class PDFGaugeChart {

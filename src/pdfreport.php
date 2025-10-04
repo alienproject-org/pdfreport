@@ -1,6 +1,7 @@
 <?php
+
 namespace AlienProject\PDFReport;
-use TCPDF;
+
 /*
  * Requirements:
  * - PHP Version 8.2 or greater
@@ -15,6 +16,7 @@ use TCPDF;
  *
  * PDF report generation based on XML template
  * 
+ * File :       PDFReport.php
  * @package  	PDFReport - Library for generating PDF documents based on XML template
  * @version  	1.0.2 - 04/10/2025
  * @category    PHP Class Library

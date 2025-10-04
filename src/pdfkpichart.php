@@ -1,9 +1,11 @@
 <?php
+
 namespace AlienProject\PDFReport;
 
 /**
  * KPI chart class
  * 
+ * File :       PDFKpiChart.php
  * @version  	1.0.2 - 04/10/2025
  */
 class PDFKpiChart {

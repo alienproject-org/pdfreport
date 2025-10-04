@@ -1,10 +1,12 @@
 <?php
+
 namespace AlienProject\PDFReport;
 
 /**
  * PDFLog Static class
  * - Enable LOG to file for live debugging
  * 
+ * File :       PDFLog.php
  * @version  	1.0.2 - 04/10/2025
  */
 class PDFLog

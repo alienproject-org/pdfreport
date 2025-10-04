@@ -1,10 +1,11 @@
 <?php
+
 namespace AlienProject\PDFReport;
-use TCPDF;
 
 /**
  * PDFBarcodeSettings class
  *
+ * File :       PDFBarcodeSettings.php
  * @version  	1.0.2 - 04/10/2025
  */
 class PDFBarcodeSettings

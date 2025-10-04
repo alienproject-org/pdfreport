@@ -1,5 +1,4 @@
 <?php
-// file : DataProviderDoctrine.php
 
 namespace AlienProject\PDFReport;
 
@@ -11,6 +10,7 @@ use Doctrine\ORM\Query;
  * Doctrine Data Provider (for Symfony)
  * For Doctrine, you'll typically use a QueryBuilder or directly fetch entities from a repository.
  * 
+ * File :       DataProviderDoctrine.php
  * @version  	1.0.2 - 04/10/2025
  */
 class DataProviderDoctrine implements DataProviderInterface
