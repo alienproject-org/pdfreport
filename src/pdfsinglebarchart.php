@@ -4,7 +4,7 @@ namespace AlienProject\PDFReport;
 /**
  * Class to generate a single bar chart
  * 
- * @version  	1.0.1 - 16/09/2025
+ * @version  	1.0.2 - 04/10/2025
  */
 class PDFSingleBarChart {
     /**

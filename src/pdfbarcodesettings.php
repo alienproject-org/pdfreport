@@ -5,7 +5,7 @@ use TCPDF;
 /**
  * PDFBarcodeSettings class
  *
- * @version  	1.0.1 - 16/09/2025
+ * @version  	1.0.2 - 04/10/2025
  */
 class PDFBarcodeSettings
 {

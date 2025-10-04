@@ -4,7 +4,7 @@ namespace AlienProject\PDFReport;
 /**
  * Classe per generare un grafico a torta
  * 
- * @version  	1.0.1 - 16/09/2025
+ * @version  	1.0.2 - 04/10/2025
  */
 class PDFPieChart {
     /**

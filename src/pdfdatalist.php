@@ -7,7 +7,7 @@ use TCPDF; // Assuming TCPDF is still used for PDF generation context
 /**
  * PDFDatalist Class
  *
- * @version  	1.0.1 - 16/09/2025
+ * @version  	1.0.2 - 04/10/2025
  */
 class PDFDatalist
 {

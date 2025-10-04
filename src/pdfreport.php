@@ -16,7 +16,7 @@ use TCPDF;
  * PDF report generation based on XML template
  * 
  * @package  	PDFReport - Library for generating PDF documents based on XML template
- * @version  	1.0.1 - 16/09/2025
+ * @version  	1.0.2 - 04/10/2025
  * @category    PHP Class Library
  * @copyright 	2025 - Alien Project
  * @license 	https://alienproject.org/index/gnu_lgpl
@@ -28,7 +28,7 @@ use TCPDF;
  */
 class PDFReport
 {
-	public string $version = '1.0.1 - 16/09/2025';
+	public string $version = '1.0.2 - 04/10/2025';
     public string $xmlTemplateFileName = '';        // Transformations : XML template file name -> XML template string -> Template array
     public string $xmlTemplate = '';                // XML template string
     private $template = null;                       // Template (array format) extracted from the XML template string
@@ -700,7 +700,7 @@ class PDFReport
                 case 'kpichart':
                     $this->ProcessKpiChart($key, $element, $x_offset, $y_offset);
                     break;
-                case 'font':
+                case 'font':  
 					$this->font = $this->ProcessFont($key, $element);
 					$this->PdfSetFont($this->font);
                     break;
@@ -717,6 +717,7 @@ class PDFReport
                     $this->ProcessImage($key, $element, $x_offset, $y_offset);
                     break;
                 case 'fill':
+                case 'fillstyle':    
                     $this->ProcessFill($key, $element, true, true);
                     break;
                 case 'opacity':
@@ -891,8 +892,8 @@ class PDFReport
 			$text = '';
 		
 		// Text Align (horizontal / vertical)
-		$horizalign = $this->LoadValue($element, 'align|textalign|texthorizalign', 'L');		// L - left, C - center, R - right, J - justify
-		$vertalign = $this->LoadValue($element, 'vertalign|textvertalign', 'T');				// T - top , M - middle, B - bottom
+		$horizalign = $this->LoadValue($element, 'align|horizalign|textalign|texthorizalign', 'L');		// L - left, C - center, R - right, J - justify
+		$vertalign = $this->LoadValue($element, 'vertalign|textvertalign', 'T');						// T - top , M - middle, B - bottom
 		
 		// Border
 		$x1 = $this->LoadValue($element, 'x1', 0, true) + $x_offset;
@@ -910,7 +911,7 @@ class PDFReport
 		
 		// Fill style and color/s
 		$fill = $this->fill;
-		$fill_element = $this->LoadValue($element, 'fill', []);
+		$fill_element = $this->LoadValue($element, 'fillstyle|fill', []);
         if (count($fill_element) > 0) {
             $fill = $this->ProcessFill('', $fill_element, false, false);
 		}
@@ -1162,7 +1163,7 @@ class PDFReport
         $title = $this->LoadValue($element, 'title', '');
 
         // Legend settings
-        $legendSettings = new PDFLegendSettings(0, 0, 0,0, 0, false);
+        $legendSettings = new PDFLegendSettings(0, 0, 0, 0, 0, false);
         $legend_element = $this->LoadValue($element, 'legend', []);     // legend settings
 		if (count($legend_element) > 0) {
 			$legendSettings = $this->ProcessLegend('', $legend_element, $x_offset, $y_offset, $x1, $y1, $x2, $y2);
@@ -1268,7 +1269,7 @@ class PDFReport
 		
 		// Fill style and color/s
 		$fill = $this->fill;
-		$fill_element = $this->LoadValue($element, 'fill', []);
+		$fill_element = $this->LoadValue($element, 'fillstyle|fill', []);
         if (count($fill_element) > 0) {
             $fill = $this->ProcessFill('', $fill_element, false, false);
 		}
@@ -1333,7 +1334,7 @@ class PDFReport
         $y1 = $this->LoadValue($element, 'y1', $defaultY1) + $y_offset;
 		$x2 = $this->LoadValue($element, 'x2', $defaultX2) + $x_offset;
 		$y2 = $this->LoadValue($element, 'y2', $defaultY2) + $y_offset;
-		$radius = $this->LoadValue($element, 'r|radius', 0);
+		$radius = $this->LoadValue($element, 'r|radius', 0);                        // Border radius of the legend background
         $visible = strtolower($this->LoadValue($element, 'visibile', 'true'));      // 1,true,yes,on = legend is visible / 0,false,no,off = legend is hidden
         $isVisible = ($visible == '1' || $visible == 'true' || $visible == 'yes' || $visible == 'on');
         $opacity = $this->LoadValue($element, 'opacity', 1.0);                      // 0..1
@@ -1359,7 +1360,7 @@ class PDFReport
 
         // Fill style and color/s
 		$fill = $this->fill;
-		$fill_element = $this->LoadValue($element, 'fill', []);
+		$fill_element = $this->LoadValue($element, 'fillstyle|fill', []);
         if (count($fill_element) > 0) {
             $fill = $this->ProcessFill('', $fill_element, false, false);
 		}
@@ -1410,7 +1411,8 @@ class PDFReport
 		$x = $this->LoadValue($element, 'x', 0, true) + $x_offset;
 		$y = $this->LoadValue($element, 'y', 0, true) + $y_offset;
 		$r  = $this->LoadValue($element, 'r', 0, true);
-		
+		if ($r <= 0) return;
+        
 		// Angle start-end
 		$angstart = $this->LoadValue($element, 'angstart', 0.0, false);
 		$angend  = $this->LoadValue($element, 'angend', 360.0, false);
@@ -1423,6 +1425,7 @@ class PDFReport
             $this->ProcessLineStyle('', $linestyle_element, $lineUpdated, false);
 		}
 		
+
 		$this->pdf->Circle($x, $y, $r, $angstart, $angend);
 		
 		if ($lineUpdated) {

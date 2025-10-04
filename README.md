@@ -139,18 +139,48 @@ Create an XML file in the root folder with the following code:
 
 ## Version History
 
-**Last version: 1.0.1 - Sep. 2025**
+**Last version: 1.0.2 - 04 Oct. 2025**
+
+### Ver. 1.0.2 - Oct. 2025
+- Renamed all application classes to make them 100% compatible with the PSR-4 autoloader standard in Linux environment in addition to the Windows environment (already supported)
 
 ### Ver. 1.0.1 - Sep. 2025
 - Minor fix and updates
 
 ### Ver. 1.0.0 - Aug. 2025
 - First release
+- Standard items included:
+  - Page 
+  - Line 
+  - Box/text
+  - Rectangle
+  - Circle
+  - Barcode 
+  - Image 
+- Formatting elements included:
+  - Page settings
+  - Line style 
+  - Font 
+  - Fill style 
+  - Color opacity level
+- Graphic elements included:
+  - Single bar chart 
+  - Pie/Donunt chart
+  - Gauge chart
+  - KPI chart
+  - Charts sub-components:
+    - Legend 
+    - Segment list
 - Data providers included:
   - PDO
   - MySqli
-  - Eloquent ORM (Laravel)
-  - Doctrine ORM (Symfony)
+  - Eloquent ORM (Laravel framework)
+  - Doctrine ORM (Symfony framework)
+- Other items
+  - Comments
+  - Section 
+  - Content 
+  - Output
 
 ## Documentation and Interactive Testing
 
@@ -168,4 +198,4 @@ By accessing the reserved area, you can interactively run the example reports pr
 
 For more information and examples, visit the main project website: https://alienproject.org
 
-Last document update: 16 Sep. 2025 
+Last document update: 04 Oct. 2025 
