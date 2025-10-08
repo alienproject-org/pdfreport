@@ -18,7 +18,7 @@ namespace AlienProject\PDFReport;
  * 
  * File :       PDFReport.php
  * @package  	PDFReport - Library for generating PDF documents based on XML template
- * @version  	1.0.2 - 04/10/2025
+ * @version  	1.0.3 - 08/10/2025
  * @category    PHP Class Library
  * @copyright 	2025 - Alien Project
  * @license 	https://alienproject.org/index/gnu_lgpl
@@ -30,12 +30,12 @@ namespace AlienProject\PDFReport;
  */
 class PDFReport
 {
-	public string $version = '1.0.2 - 04/10/2025';
+	public string $version = '1.0.3 - 08/10/2025';
     public string $xmlTemplateFileName = '';        // Transformations : XML template file name -> XML template string -> Template array
     public string $xmlTemplate = '';                // XML template string
     private $template = null;                       // Template (array format) extracted from the XML template string
     private $varList = [];                          // Associative array : Variable Key (UPPERCASE) -> Variable Value  (add variables here using the SetVar command)
-    public ?TCPDF $pdf = null;
+    public ?\TCPDF $pdf = null;                     // The TCPDF library is in the global namespace
     private $pageIndex = 0;
     private $pageCount = 0;
     private $sections = [];
@@ -508,7 +508,7 @@ class PDFReport
             // Custom page size
             $page_format = [ $this->page->width, $this->page->height ];
         }
-        $this->pdf = new TCPDF(
+        $this->pdf = new \TCPDF(
             $this->page->orientation,
             $this->page->unit,
             $page_format,

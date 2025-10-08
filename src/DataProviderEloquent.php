@@ -2,87 +2,73 @@
 
 namespace AlienProject\PDFReport;
 
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Query\Builder as QueryBuilder;
-use Illuminate\Support\LazyCollection;
+use Illuminate\Database\Capsule\Manager as Capsule;
+use Illuminate\Database\ConnectionInterface;
+use PDO;
+use PDOStatement;
 
 /**
- * Eloquent Data Provider (for Laravel)
- * For Eloquent, you'll pass an Eloquent Builder instance.
+ * Eloquent data provider class
  * 
  * File :       DataProviderEloquent.php
- * @version  	1.0.2 - 04/10/2025
+ * @version     1.0.3 - 07/10/2025
  * 
- * Usage example:
- * Using existing Eloquent Builder 
- *  $builder = User::where('active', true)->orderBy('name');
- *  $dataProvider = new DataProviderEloquent($builder);
- *
- * Using query raw
- *  $dataProvider = DataProviderEloquent::fromRawQuery(
- *   'mysql', 
- *   'SELECT * FROM users WHERE active = ?', 
- *   [true]
- *  );
- *
- * Standard usage:
- *  $dataProvider->execute();
- *   while ($row = $dataProvider->fetchNext()) {
- *      // Processa $row...
- *   }
+ * Usage example in a controller:
+ * 
+ * First, insert the necessary use statements at the top of your controller file:
+ *  use Illuminate\Http\Request;
+ *  use Illuminate\Support\Facades\DB; 
+ *  use AlienProject\PDFReport\PDFReport;
+ *  use AlienProject\PDFReport\DataProviderEloquent;
+ * 
+ * In your controller action, In the controller action, retrieve the current database connection from the DB facades:
+ *  public function build()
+ *  {
+ *      // Create the PDFReport instance
+ *      $report = new PDFReport('order.xml');
+ *      // Get the current database connection
+ *      $connection = DB::connection();
+ *      // Create the Eloquent data provider
+ *      $ord_DataProvider = new DataProviderEloquent(
+ *                               $connection,
+ *                              'SELECT * FROM vorders WHERE orderNumber=?',
+ *                              [ 103 ]);
+ *      // Assign the data provider to the report
+ *      $report->SetSection('ord', $ord_DataProvider);
+ *      // Build the report
+ *      $report->BuildReport();
+ *  }
+ * 
  */
 class DataProviderEloquent implements DataProviderInterface
 {
-    private Builder $queryBuilder;
-    private string $query = '';                     // SQL query string
+    private ConnectionInterface $connection;
+    private PDO $pdo;
+    private string $query;
     private string $queryRaw = '';                  // Raw query string (with placeholders, eg. {details.id}, that will be replaced by data)
-    private array $bindings = [];                   // Query bindings/parameters
-    private ?LazyCollection $results = null;
-    private ?\Iterator $iterator = null;
-    private int $recordCount = 0;
+    private array $args;
+    private ?PDOStatement $statement = null;
     private ?array $currentRow = null;
-    private bool $executed = false;
-
-    public function __construct(Builder $queryBuilder)
-    {
-        $this->queryBuilder = $queryBuilder;
-        
-        // Store the original SQL query and bindings
-        $this->updateQueryInfo();
-    }
+    private int $recordCount = 0;
 
     /**
-     * Alternative constructor that accepts a raw SQL query
+     * Constructor
+     * 
+     * @param ConnectionInterface|null $connection The Eloquent connection (if null, uses default)
+     * @param string $query The SQL query string
+     * @param array $args Query parameters
      */
-    public static function fromRawQuery(string $connectionName, string $sql, array $bindings = []): self
+    public function __construct(?ConnectionInterface $connection = null, string $query = '', array $args = [])
     {
-        // Create a basic query builder for the connection
-        $connection = \Illuminate\Support\Facades\DB::connection($connectionName);
-        $queryBuilder = $connection->query();
+        // Use provided connection or get the default one from Capsule
+        $this->connection = $connection ?? Capsule::connection();
         
-        $instance = new self($queryBuilder);
-        $instance->query = $sql;
-        $instance->queryRaw = $sql;
-        $instance->bindings = $bindings;
+        // Get the underlying PDO instance from Eloquent
+        $this->pdo = $this->connection->getPdo();
         
-        return $instance;
-    }
-
-    /**
-     * Updates internal query information from the current QueryBuilder
-     */
-    private function updateQueryInfo(): void
-    {
-        try {
-            $this->query = $this->queryBuilder->toSql();
-            $this->queryRaw = $this->query;
-            $this->bindings = $this->queryBuilder->getBindings();
-        } catch (\Exception $e) {
-            // If we can't get query info, set defaults
-            $this->query = '';
-            $this->queryRaw = '';
-            $this->bindings = [];
-        }
+        $this->query = $query;
+        $this->queryRaw = $query;
+        $this->args = $args;
     }
 
     public function execute(): void
@@ -90,60 +76,40 @@ class DataProviderEloquent implements DataProviderInterface
         $this->reset(); // Reset before executing
 
         try {
-            // Clone the query builder to avoid modifying the original
-            $queryBuilderForExecution = clone $this->queryBuilder;
+            $this->statement = $this->pdo->prepare($this->query);
+            if ($this->statement === false) {
+                throw new \Exception('DataProviderEloquent: Failed to prepare statement for query: ' . $this->query);
+            }
+
+            // Bind parameters
+            foreach ($this->args as $index => $arg) {
+                // PDO parameters are 1-indexed for positional placeholders
+                $this->statement->bindValue($index + 1, $arg);
+            }
+
+            $this->statement->execute();
+            $this->statement->setFetchMode(PDO::FETCH_ASSOC); // Ensure associative array results
             
-            // Use cursor() for large datasets to avoid loading all into memory
-            // cursor() returns a LazyCollection which implements Iterator
-            $this->results = $queryBuilderForExecution->cursor();
-            $this->iterator = $this->results->getIterator();
+            // Gets the record count using a separate COUNT query
+            $countQuery = "SELECT COUNT(*) AS count_num_rec FROM (" . $this->query . ") AS count_alias";
+            $countStmt = $this->pdo->prepare($countQuery);
+            foreach ($this->args as $index => $arg) {
+                $countStmt->bindValue($index + 1, $arg);
+            }
+            $countStmt->execute();
+            $this->recordCount = $countStmt->fetchColumn();
 
-            // Get count using a separate count query for accuracy
-            $this->recordCount = $this->getRecordCountFromBuilder();
-
-            $this->executed = true;
-
-        } catch (\Exception $e) {
-            throw new \Exception('EloquentDataProvider: Error executing query - ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Gets the record count using a separate count query
-     */
-    private function getRecordCountFromBuilder(): int
-    {
-        try {
-            // Clone the query builder for count to avoid affecting the original
-            $countBuilder = clone $this->queryBuilder;
-            
-            // Use count() method which is optimized for counting
-            return $countBuilder->count();
-            
-        } catch (\Exception $e) {
-            // If count fails, log error and return 0
-            error_log('EloquentDataProvider: Failed to get record count - ' . $e->getMessage());
-            return 0;
+        } catch (\PDOException $e) {
+            throw new \Exception('DataProviderEloquent: PDO Error - ' . $e->getMessage());
         }
     }
 
     public function fetchNext(): ?array
     {
-        if (!$this->executed) {
-            throw new \Exception('EloquentDataProvider: Query not executed. Call execute() first.');
+        if ($this->statement && ($row = $this->statement->fetch(PDO::FETCH_ASSOC))) {
+            $this->currentRow = $row;
+            return $this->currentRow;
         }
-
-        if ($this->iterator && $this->iterator->valid()) {
-            $model = $this->iterator->current();
-            $this->iterator->next();
-            
-            // Convert Eloquent model to associative array
-            if ($model) {
-                $this->currentRow = $model->toArray();
-                return $this->currentRow;
-            }
-        }
-        
         $this->currentRow = null;
         return null;
     }
@@ -152,14 +118,10 @@ class DataProviderEloquent implements DataProviderInterface
     {
         return $this->currentRow;
     }
-
+    
     public function hasMoreRecords(): bool
     {
-        if (!$this->executed) {
-            return false;
-        }
-        
-        return $this->iterator && $this->iterator->valid();
+        return $this->currentRow !== null;
     }
 
     public function getRecordCount(): int
@@ -169,30 +131,19 @@ class DataProviderEloquent implements DataProviderInterface
 
     public function reset(): void
     {
-        $this->results = null;
-        $this->iterator = null;
+        $this->statement = null;
         $this->currentRow = null;
         $this->recordCount = 0;
-        $this->executed = false;
     }
-
+    
     public function getQuery(): string
     {
-        // Update query info in case the builder was modified
-        if (!$this->executed) {
-            $this->updateQueryInfo();
-        }
         return $this->query;
     }
 
     public function setQuery(string $query): void
     {
         $this->query = $query;
-        $this->executed = false; // Mark as not executed since query changed
-        
-        // Note: Setting raw SQL on an Eloquent Builder is complex
-        // This method is mainly for compatibility with the interface
-        // In practice, you'd modify the QueryBuilder directly or use fromRawQuery()
     }
 
     public function getQueryRaw(): string
@@ -204,150 +155,4 @@ class DataProviderEloquent implements DataProviderInterface
     {
         $this->queryRaw = $queryRaw;
     }
-
-    /**
-     * Gets the query bindings/parameters
-     */
-    public function getBindings(): array
-    {
-        // Update bindings in case the builder was modified
-        if (!$this->executed) {
-            $this->updateQueryInfo();
-        }
-        return $this->bindings;
-    }
-
-    /**
-     * Sets query bindings (mainly for raw queries)
-     */
-    public function setBindings(array $bindings): void
-    {
-        $this->bindings = $bindings;
-        $this->executed = false; // Mark as not executed since bindings changed
-    }
-
-    /**
-     * Gets the underlying Eloquent Builder
-     */
-    public function getQueryBuilder(): Builder
-    {
-        return $this->queryBuilder;
-    }
-
-    /**
-     * Adds a where condition to the query builder
-     */
-    public function where($column, $operator = null, $value = null, $boolean = 'and'): self
-    {
-        $this->queryBuilder->where($column, $operator, $value, $boolean);
-        $this->executed = false; // Mark as not executed since query changed
-        return $this;
-    }
-
-    /**
-     * Adds an order by clause to the query builder
-     */
-    public function orderBy($column, $direction = 'asc'): self
-    {
-        $this->queryBuilder->orderBy($column, $direction);
-        $this->executed = false; // Mark as not executed since query changed
-        return $this;
-    }
-
-    /**
-     * Adds a limit to the query builder
-     */
-    public function limit(int $limit): self
-    {
-        $this->queryBuilder->limit($limit);
-        $this->executed = false; // Mark as not executed since query changed
-        return $this;
-    }
-
-    /**
-     * Adds an offset to the query builder
-     */
-    public function offset(int $offset): self
-    {
-        $this->queryBuilder->offset($offset);
-        $this->executed = false; // Mark as not executed since query changed
-        return $this;
-    }
-
-    /**
-     * Adds a select clause to the query builder
-     */
-    public function select($columns = ['*']): self
-    {
-        $this->queryBuilder->select($columns);
-        $this->executed = false; // Mark as not executed since query changed
-        return $this;
-    }
-
-    /**
-     * Adds a join to the query builder
-     */
-    public function join($table, $first, $operator = null, $second = null, $type = 'inner', $where = false): self
-    {
-        $this->queryBuilder->join($table, $first, $operator, $second, $type, $where);
-        $this->executed = false; // Mark as not executed since query changed
-        return $this;
-    }
-
-    /**
-     * Adds a left join to the query builder
-     */
-    public function leftJoin($table, $first, $operator = null, $second = null): self
-    {
-        $this->queryBuilder->leftJoin($table, $first, $operator, $second);
-        $this->executed = false; // Mark as not executed since query changed
-        return $this;
-    }
-
-    /**
-     * Adds a group by clause to the query builder
-     */
-    public function groupBy(...$groups): self
-    {
-        $this->queryBuilder->groupBy(...$groups);
-        $this->executed = false; // Mark as not executed since query changed
-        return $this;
-    }
-
-    /**
-     * Adds a having clause to the query builder
-     */
-    public function having($column, $operator = null, $value = null, $boolean = 'and'): self
-    {
-        $this->queryBuilder->having($column, $operator, $value, $boolean);
-        $this->executed = false; // Mark as not executed since query changed
-        return $this;
-    }
-
-    /**
-     * Gets the SQL representation of the query with bindings
-     */
-    public function toSql(): string
-    {
-        return $this->queryBuilder->toSql();
-    }
-
-    /**
-     * Gets the SQL query with bound values (for debugging)
-     */
-    public function toRawSql(): string
-    {
-        $sql = $this->queryBuilder->toSql();
-        $bindings = $this->queryBuilder->getBindings();
-        
-        // Replace ? placeholders with actual values (for debugging purposes)
-        foreach ($bindings as $binding) {
-            $value = is_string($binding) ? "'{$binding}'" : $binding;
-            $sql = preg_replace('/\?/', $value, $sql, 1);
-        }
-        
-        return $sql;
-    }
 }
-
-?>

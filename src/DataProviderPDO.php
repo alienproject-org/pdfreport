@@ -6,10 +6,10 @@ use PDO;
 use PDOStatement;
 
 /**
- * PDO data provider interface
+ * PDO data provider class
  * 
  * File :       DataProviderPDO.php
- * @version  	1.0.2 - 04/10/2025
+ * @version  	1.0.3 - 08/10/2025
  */
 class DataProviderPDO implements DataProviderInterface
 {

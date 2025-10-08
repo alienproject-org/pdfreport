@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Class to generate a single bar chart
  * 
  * File :       PDFSingleBarChart.php
- * @version  	1.0.2 - 04/10/2025
+ * @version  	1.0.3 - 08/10/2025
  */
 class PDFSingleBarChart {
     /**

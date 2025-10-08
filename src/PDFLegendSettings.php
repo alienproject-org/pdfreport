@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Class for managing the configuration of a chart legend
  * 
  * File :       PDFLegendSettings.php
- * @version  	1.0.2 - 04/10/2025
+ * @version  	1.0.3 - 08/10/2025
  */
 class PDFLegendSettings 
 {    

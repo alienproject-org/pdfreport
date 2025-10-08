@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * PDFLineSettings class
  *
  * File :       PDFLineSettings.php
- * @version  	1.0.2 - 04/10/2025
+ * @version  	1.0.3 - 08/10/2025
  */
 class PDFLineSettings
 {
