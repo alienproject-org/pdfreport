@@ -139,9 +139,15 @@ Create an XML file in the root folder with the following code:
 
 ## Version History
 
-**Last version: 1.0.3 - 08 Oct. 2025**
+**Last version: 1.0.4 - 15 Nov. 2025**
 
-### Ver. 1.0.8 - 04 Oct. 2025
+### Ver. 1.0.4 - 15 Nov. 2025
+- Added rotateangle (0° - 360°) attribute to box element to rotate box around angle x1,y1
+- Added new graphic elements
+  - Bar chart (vertical/horizontal)
+  - Line/area chart
+
+### Ver. 1.0.3 - 08 Oct. 2025
 - Updated/fix Updated/fix Doctrine data provider class (for Symfony framework)
 - Updated/fix Updated/fix Eloquent data provider class (for Laravel framework)
 - Set the TCPDF library is in the global namespace (fix for Symfony framework)
@@ -203,4 +209,4 @@ By accessing the reserved area, you can interactively run the example reports pr
 
 For more information and examples, visit the main project website: https://alienproject.org
 
-Last document update: 08 Oct. 2025 
+Last document update: 15 Nov. 2025 

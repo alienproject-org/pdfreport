@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * PDFPageSettings class
  *
  * File :       PDFPageSettings.php
- * @version  	1.0.3 - 08/10/2025
+ * @version  	1.0.4 - 15/11/2025
  */
 class PDFPageSettings
 {

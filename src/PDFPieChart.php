@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Classe per generare un grafico a torta
  * 
  * File :       PDFPieChart.php
- * @version  	1.0.3 - 08/10/2025
+ * @version  	1.0.4 - 15/11/2025
  */
 class PDFPieChart {
     /**
@@ -67,7 +67,7 @@ class PDFPieChart {
         // Calcola la somma totale dei valori
         $total = 0.0;
         foreach ($this->dataItems as $item) {
-            $total += $item->value;
+            $total += $item->getValue(0);
         }
         
         // Verifica se il totale è maggiore di zero
@@ -83,7 +83,7 @@ class PDFPieChart {
             $item->x1 = $this->xc;
             $item->y1 = $this->yc; 
             $item->radius = $this->radius;
-            $item->percentage = $item->value / $total;
+            $item->percentage = $item->getValue(0) / $total;
             $angle = 360 * $item->percentage;
             $endAngle = $startAngle + $angle;
             $item->startAngle =  $startAngle;

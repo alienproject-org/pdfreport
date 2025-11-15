@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Legend chart class
  * 
  * File :       PDFGraphLegend.php
- * @version  	1.0.3 - 08/10/2025
+ * @version  	1.0.4 - 15/11/2025
  */
 class PDFGraphLegend 
 {    
@@ -15,7 +15,8 @@ class PDFGraphLegend
      * Class constructor
      */
     public function __construct(private PDFLegendSettings $settings,                  
-                                private ?array $items = null) {
+                                private ?array $items = null,
+                                private ?array $measures = null) {
         // Auto-create-initialize all properties : $settings ... $items (array of ChartItems)
     }
     
@@ -73,7 +74,13 @@ class PDFGraphLegend
     {
         $x = $this->settings->x1 + $this->settings->padding;
         $y = $this->settings->y1 + $this->settings->padding;
-        $itemsCount = count($this->items) + (strlen($this->settings->title) > 0 ? 1 : 0);
+        $itemsCount = 0;
+        if (!empty($this->items) && is_array($this->items) && count($this->items) > 0) {
+            $itemsCount = count($this->items) + (strlen($this->settings->title) > 0 ? 1 : 0);
+        } else if (!empty($this->measures) && is_array($this->measures) && count($this->measures) > 0) {
+            $itemsCount = count($this->measures);
+        }
+        $itemsCount += (strlen($this->settings->title) > 0 ? 1 : 0);
         $totalPadding = ($itemsCount -1) * $this->settings->padding;
         $width = ($this->settings->x2 - $this->settings->x1 - $totalPadding) / ($itemsCount + 1);
         If ($width < 10) $width = 10;
@@ -82,21 +89,36 @@ class PDFGraphLegend
             $report->PdfBox($x, $y, $x + $width, $y + $this->settings->titleHeight, $this->settings->title, $this->settings->font, 'L', 'M', 0);
             $x += $width + $this->settings->padding;
         }
-        foreach ($this->items as $item)
-        {
-            // Draw item box 
-            $report->PdfRectangle($x, $y, $x + $this->settings->boxSize, $y + $this->settings->boxSize, 0, '0000', $this->settings->line, $item->fill);
-            // Draw item label
-            $x += $this->settings->boxSize + $this->settings->padding;
-            $label = $item->label;
-            if ($this->settings->isValueVisible) {
-                $label .= ' (' . $item->value .')';
+        if (!empty($this->items) && is_array($this->items) && count($this->items) > 0) {
+            foreach ($this->items as $item) {
+                // Draw item box 
+                $report->PdfRectangle($x, $y, $x + $this->settings->boxSize, $y + $this->settings->boxSize, 0, '0000', $this->settings->line, $item->fill);
+                // Draw item label
+                $x += $this->settings->boxSize + $this->settings->padding;
+                $label = $item->label;
+                if ($this->settings->isValueVisible) {
+                    // Draw item value
+                    $itemValue = $item->getValue(0);
+                    $label .= ' (' . $itemValue .')';
+                }
+                $report->PdfBox($x, $y, $x + $width, $y + $this->settings->itemLabelHeight, $label, $this->settings->font, 'L', 'M', 0);
+                // Prepare to process next item
+                $x += $width + $this->settings->padding;
             }
-            $report->PdfBox($x, $y, $x + $width, $y + $this->settings->itemLabelHeight, $label, $this->settings->font, 'L', 'M', 0);
-            // Draw item value
-
-            // Prepare to process next item
-            $x += $width + $this->settings->padding;
+        } else {
+            // Use measures
+            if (!empty($this->measures) && is_array($this->measures) && count($this->measures) > 0) {
+                foreach ($this->measures as $measure) {
+                    // Draw legend box 
+                    $report->PdfRectangle($x, $y, $x + $this->settings->boxSize, $y + $this->settings->boxSize, 0, '0000', $this->settings->line, $measure->symbol->fill);
+                    // Draw legend label
+                    $x += $this->settings->boxSize + $this->settings->padding;
+                    $label = $measure->label;
+                    $report->PdfBox($x, $y, $x + $width, $y + $this->settings->itemLabelHeight, $label, $this->settings->font, 'L', 'M', 0);
+                    // Prepare to process next item
+                    $x += $width + $this->settings->padding;
+                }
+            }
         }
     }
 
@@ -109,22 +131,39 @@ class PDFGraphLegend
             $report->PdfBox($x, $y, $this->settings->x2 - $this->settings->padding, $y + $this->settings->titleHeight, $this->settings->title, $this->settings->font, 'L', 'M', 0);
             $y += $this->settings->titleHeight;
         }
-        foreach ($this->items as $item)
-        {
-            $x = $this->settings->x1 + $this->settings->padding;
-            // Draw item box 
-            $report->PdfRectangle($x, $y, $x + $this->settings->boxSize, $y + $this->settings->boxSize, 0, '0000', $this->settings->line, $item->fill);
-            // Draw item label
-            $x += $this->settings->boxSize + $this->settings->padding;
-            $label = $item->label;
-            if ($this->settings->isValueVisible) {
-                $label .= ' (' . $item->value .')';
+        if (!empty($this->items) && is_array($this->items) && count($this->items) > 0) {
+            // Use dataitems
+            foreach ($this->items as $item) {
+                $x = $this->settings->x1 + $this->settings->padding;
+                // Draw legend box 
+                $report->PdfRectangle($x, $y, $x + $this->settings->boxSize, $y + $this->settings->boxSize, 0, '0000', $this->settings->line, $item->fill);
+                // Draw legend label
+                $x += $this->settings->boxSize + $this->settings->padding;
+                $label = $item->label;
+                if ($this->settings->isValueVisible) {
+                    // Draw value
+                    $itemValue = $item->getValue(0);
+                    $label .= ' (' . $itemValue .')';
+                }
+                $report->PdfBox($x, $y, $this->settings->x2 - $this->settings->padding, $y + $this->settings->itemLabelHeight, $label, $this->settings->font, 'L', 'M', 0);
+                // Prepare to process next item
+                $y += $this->settings->itemLabelHeight + $this->settings->marginBetweenItems;
             }
-            $report->PdfBox($x, $y, $this->settings->x2 - $this->settings->padding, $y + $this->settings->itemLabelHeight, $label, $this->settings->font, 'L', 'M', 0);
-            // Draw item value
-
-            // Prepare to process next item
-            $y += $this->settings->itemLabelHeight + $this->settings->marginBetweenItems;
+        } else {
+            // Use measures
+            if (!empty($this->measures) && is_array($this->measures) && count($this->measures) > 0) {
+                foreach ($this->measures as $measure) {
+                    $x = $this->settings->x1 + $this->settings->padding;
+                    // Draw legend box 
+                    $report->PdfRectangle($x, $y, $x + $this->settings->boxSize, $y + $this->settings->boxSize, 0, '0000', $this->settings->line, $measure->symbol->fill);
+                    // Draw legend label
+                    $x += $this->settings->boxSize + $this->settings->padding;
+                    $label = $measure->label;
+                    $report->PdfBox($x, $y, $this->settings->x2 - $this->settings->padding, $y + $this->settings->itemLabelHeight, $label, $this->settings->font, 'L', 'M', 0);
+                    // Prepare to process next item
+                    $y += $this->settings->itemLabelHeight + $this->settings->marginBetweenItems;
+                }
+            }
         }
     }
 
@@ -134,9 +173,15 @@ class PDFGraphLegend
     public function render(PDFReport $report) 
     {
         if (!$this->settings->isVisible) return;
-        if (count($this->items) == 0) return;
+        $itemsCount = 0;
+        if (!empty($this->items) && is_array($this->items) && count($this->items) > 0) {
+            $itemsCount = count($this->items) + (strlen($this->settings->title) > 0 ? 1 : 0);
+        } else if (!empty($this->measures) && is_array($this->measures) && count($this->measures) > 0) {
+            $itemsCount = count($this->measures);
+        }
+        if ($itemsCount == 0) return;
         // Draw legend container area
-        $report->pdf->SetAlpha($this->settings->opacity);
+        $report->SetOpacity($this->settings->opacity, true, false);
         $report->PdfRectangle($this->settings->x1, $this->settings->y1, $this->settings->x2, $this->settings->y2, $this->settings->radius, '1111', $this->settings->line, $this->settings->fill);
         // Draw legend elements
         if ($this->settings->isVertical)
@@ -144,7 +189,7 @@ class PDFGraphLegend
         else 
             $this->renderLegendHorizontal($report);
         // Resets the transparency value (alpha color) to the default
-        $report->pdf->SetAlpha($report->GetOpacity());
+        $report->ResetOpacity();
     }
     
 }

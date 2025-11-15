@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * PDFDatalist Class
  *
  * File :       PDFDatalist.php
- * @version  	1.0.3 - 08/10/2025
+ * @version  	1.0.4 - 15/11/2025
  */
 class PDFDatalist
 {
@@ -27,7 +27,7 @@ class PDFDatalist
     {
         $this->id = $id;
         $this->dataProvider = $dataProvider;
-        PDFLog::Write("Datalist($id)-Construct");      // Assuming PDFLog is a utility class
+        PDFLog::Write("Datalist($id)-Construct");       // Assuming PDFLog is a utility class
     }
 
     public function Reset(): void
@@ -81,9 +81,9 @@ class PDFDatalist
 
         $this->Reset();
         $this->dataProvider->execute();
-        $this->recIndex = 0;                // Reset index for internal tracking after execution
-        $this->NextRecord();                // Fetch the first record (NextRecord will set $this->row)
-        $this->endOfData = !$this->dataProvider->hasMoreRecords(); // Update endOfData based on the data provider
+        $this->recIndex = 0;                                        // Reset index for internal tracking after execution
+        $this->NextRecord();                                        // Fetch the first record (NextRecord will set $this->row)
+        $this->endOfData = !$this->dataProvider->hasMoreRecords();  // Update endOfData based on the data provider
         $this->recCount = $this->dataProvider->getRecordCount();
 
         PDFLog::Write("Datalist(" . $this->id . ")-ExecuteQuery-End:recCount=[" . $this->dataProvider->getRecordCount() . "]");

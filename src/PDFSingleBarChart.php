@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Class to generate a single bar chart
  * 
  * File :       PDFSingleBarChart.php
- * @version  	1.0.3 - 08/10/2025
+ * @version  	1.0.4 - 15/11/2025
  */
 class PDFSingleBarChart {
     /**
@@ -19,19 +19,19 @@ class PDFSingleBarChart {
      * $dataItems           Array of PDFChartItem object
      */
     
-    private float $total = 0.0;                 // Total value of all data items
-    // Legend settings
-    public ?PDFGraphLegend $legend = null;      // null=no legend
+    private float $total = 0.0;                     // Total value of all data items
+    // Public settings
+    public ?PDFGraphLegend $legend = null;          // null=no legend
+    public ?PDFFontSettings $axisFont = null;       // Font settings for the axis labels
 
     /**
-    * PieChart class constructor
+    * Single Bar Chart class constructor
     *
     * @param float $x1          The x-coordinate of the upper-left corner
     * @param float $y1          The y-coordinate of the upper-left corner
     * @param float $x2          The x-coordinate of the lower-right corner
     * @param float $y2          The y-coordinate of the lower-right corner
     * @param array $dataItems   The PDFChartItem array with label, value, color and other properties for each sector
-    * @param string             $style  The pie chart style ('CLASSIC', 'DEFAULT', 'RING', 'DONUTS')
     */
     public function __construct(private float $x1, private float $y1, private float $x2, private float $y2, 
                                 public bool $isVertical, public float $minValue, public float $maxValue,
@@ -57,7 +57,7 @@ class PDFSingleBarChart {
         // Calculate the total sum of the values
         $total = 0.0;
         foreach ($this->dataItems as $item) {
-            $total += $item->value;
+            $total += $item->getValue(0);
         }
         $this->total = $total;
         if ($this->maxValue == 0.0) {
@@ -65,17 +65,17 @@ class PDFSingleBarChart {
             $this->maxValue = $total;
         }
 
-        // Calcola la dimensione di ogni elemento del grafico
+        // Calculate the size of each chart element
         if ($this->isVertical) {
             // Vertical bar chart
             $y2 = $this->y2;
             foreach ($this->dataItems as $item) {
-                $item->percentage = $item->value / $this->maxValue;         // Calcola la percentuale del valore rispetto al fondo scala
+                $item->percentage = $item->getValue(0) / $this->maxValue;         // Calculates the percentage of the value compared to the full scale
                 $item->x1 = $this->x1; 
-                $height = ($this->y2 - $this->y1) * $item->percentage;      // Calcola l'altezza della barra
-                $item->y1 = $y2 - $height;                                  // Calcola il punto di partenza
+                $height = ($this->y2 - $this->y1) * $item->percentage;      // Calculate the height of the bar
+                $item->y1 = $y2 - $height;                                  // Calculate the starting point
                 if ($item->y1 < $this->y1) {
-                    // Non esce dallo spazio assegnato al grafico se i dati vanno fuori scala massima
+                    // It does not go out of the space assigned to the graph if the data goes out of maximum scale
                     $item->y1 = $this->y1;
                     $height = 0;
                 }
@@ -88,7 +88,7 @@ class PDFSingleBarChart {
             // Horizontal bar chart
             $x1 = $this->x1;
             foreach ($this->dataItems as $item) {
-                $item->percentage = $item->value / $this->maxValue;         // Calcola la percentuale del valore rispetto al fondo scala
+                $item->percentage = $item->getValue(0) / $this->maxValue;         // Calculates the percentage of the value compared to the full scale
                 $item->x1 = $x1;
                 $item->y1 = $this->y1; 
                 $width = ($this->x2 - $this->x1) * $item->percentage;       // Calcola la larghezza della barra
@@ -128,8 +128,15 @@ class PDFSingleBarChart {
         }
 
         // Draw axis with labels
-        $axisFont = new PDFFontSettings('helvetica', '', 8, '000000');
+        if ($this->axisFont != null) {
+            // Use custom axis font
+            $axisFont = $this->axisFont;
+        } else {
+            // Use default axis font
+            $axisFont = new PDFFontSettings('helvetica', '', 8, '000000');
+        }
         $axisLine = new PDFLineSettings(0.2, '000000');
+
         if ($this->isVertical) {
             // Axis for vertical bar chart (left side)
             $axisSettings = new PDFAxisSettings($this->x1 - 15.0, $this->y1, $this->x1, $this->y2, $this->minValue, $this->maxValue, '', $axisFont, true, true, $axisLine);

@@ -6,24 +6,24 @@ namespace AlienProject\PDFReport;
  * PDFFillSettings class
  *
  * File :       PDFFillSettings.php
- * @version  	1.0.3 - 08/10/2025
+ * @version  	1.0.4 - 15/11/2025
  */
 class PDFFillSettings
 {
     // PDF page settings
-    public string $type = 'S';                      // N-None, S-solid, L-linear gradient, R-radial gradient
+    public string $type = 'N';                      // N-None, S-solid, L-linear gradient, R-radial gradient
     public string $rgbColor1 = 'FFFFFF';            // Color RGB hex format (FFFFFF : white)
     public string $rgbColor2 = 'FFFFFF';            
     private array $color1 = [0, 0, 0];              // RGB array color [ R, G, B ], RGB : 0..255
     private array $color2 = [0, 0, 0];
 
 
-    function __construct($type = 'S', $rgbColor1 = 'FFFFFF', $rgbColor2 = 'FFFFFF')
+    function __construct($type = 'N', $rgbColor1 = 'FFFFFF', $rgbColor2 = 'FFFFFF')
     {
         $this->Initialize($type, $rgbColor1, $rgbColor2);
     }
 
-    public function Initialize($type = 'S', $rgbColor1 = 'FFFFFF', $rgbColor2 = 'FFFFFF')
+    public function Initialize($type = 'N', $rgbColor1 = 'FFFFFF', $rgbColor2 = 'FFFFFF')
     {
         // Validate and fix type
         $type = substr(strtoupper(trim($type)), 0, 1);
@@ -38,18 +38,27 @@ class PDFFillSettings
         $this->color2 = $this->hexToRgbArray($rgbColor2);
     }
 
+    /**
+     * Gets the initial color as an array with the 3 decimal values ​​[R, G, B]
+     */
     public function GetStartColor()
     {
         $this->color1 = $this->hexToRgbArray($this->rgbColor1);
         return $this->color1;
     }
 
+    /**
+     * Gets the final color as an array with the 3 decimal values ​​[R, G, B]
+     */
     public function GetEndColor()
     {
         $this->color2 = $this->hexToRgbArray($this->rgbColor2);
         return $this->color2;
     }
 
+    /**
+     * Returns an array with the 3 decimal values [R, G, B]
+     */
     private function hexToRgbArray(string $hexColor): array 
     {
         // Removes the # character at the beginning of the text, if present
