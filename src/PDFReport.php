@@ -18,7 +18,7 @@ namespace AlienProject\PDFReport;
  * 
  * File :       PDFReport.php
  * @package  	PDFReport - Library for generating PDF documents based on XML template
- * @version  	1.0.4 - 15/11/2025
+ * @version  	1.0.5 - 27/11/2025
  * @category    PHP Class Library
  * @copyright 	2025 - Alien Project
  * @license 	https://alienproject.org/index/gnu_lgpl
@@ -30,29 +30,33 @@ namespace AlienProject\PDFReport;
  */
 class PDFReport
 {
-	public string $version = '1.0.4 - 15/11/2025';
-    public string $xmlTemplateFileName = '';        // Transformations : XML template file name -> XML template string -> Template array
-    public string $xmlTemplate = '';                // XML template string
-    private $template = null;                       // Template (array format) extracted from the XML template string
-    private $varList = [];                          // Associative array : Variable Key (UPPERCASE) -> Variable Value  (add variables here using the SetVar command)
-    public ?\TCPDF $pdf = null;                     // The TCPDF library is in the global namespace
+	public string $version = '1.0.5 - 27/11/2025';
+    public string $xmlTemplateFileName = '';            // Transformations : XML template file name -> XML template string -> Template array
+    public string $xmlTemplate = '';                    // XML template string
+    private $template = null;                           // Template (array format) extracted from the XML template string
+    private $varList = [];                              // Associative array : Variable Key (UPPERCASE) -> Variable Value  (add variables here using the SetVar command)
+    public ?\TCPDF $pdf = null;                         // The TCPDF library is in the global namespace
     private $pageIndex = 0;
     private $pageCount = 0;
     private $sections = [];
     private $contents = [];
     private $prevSec = null;
-    private string $currentSectionId = '';          // Current section id (build in progress)
+    private string $currentSectionId = '';              // Current section id (build in progress)
     // PDF current settings
-    private ?PDFPageSettings $page = null;          // PDF current page settings
-    private ?PDFFontSettings $font = null;          // PDF current font settings
-    private ?PDFLineSettings $line = null;          // PDF current line settings
+    private ?PDFPageSettings $page = null;              // PDF current page settings
+    private ?PDFFontSettings $font = null;              // PDF current font settings
+    private ?PDFLineSettings $line = null;              // PDF current line settings
     private ?PDFBarcodeSettings $barcode = null;
-    private ?PDFFillSettings $fill = null;          // PDF current fill settings
-    private float $opacity = 1.0;                   // Current opacity/transparent (alpha color component setting, range: 0.0 .. 1.0)
+    private ?PDFFillSettings $fill = null;              // PDF current fill settings
+    private float $opacity = 1.0;                       // Current opacity/transparent (alpha color component setting, range: 0.0 .. 1.0)
+    private TextFit $textFit = TextFit::Auto;           // PDF current (default) text fit into box area
     // Prevent infinite ricorsive calls
     private int $loopCount = 0;
     // Other settings
-    private $datalist = [];                         // Datalist (the placeholders used for the graphs will be replaced with the data from the datalist)
+    private $datalist = [];                             // Datalist (the placeholders used for the graphs will be replaced with the data from the datalist)
+    // Custom callback
+    private $formatCallback = null;
+    
 
     // ***************************
 
@@ -70,8 +74,99 @@ class PDFReport
         $this->line = new PDFLineSettings();
         $this->barcode = new PDFBarcodeSettings();
         $this->fill = new PDFFillSettings();
+        $this->InitializeSystemVar();
         if (strlen($xmlTemplateFileName) > 0)
             $this->LoadTemplate($xmlTemplateFileName);        
+    }
+
+    // ***************************
+
+    /**
+     * Set the callback function for formatting values
+     * 
+     * @param callable $callback Function that takes ($fieldName, $fieldValue) and returns the value of $fieldValue formatted (string) with custom logic
+     */
+    public function SetFormatCallback(callable $callback): void
+    {
+        $this->formatCallback = $callback;
+    }
+
+    // ***************************
+
+    /**
+     * Formats a value using the callback if defined, otherwise format using fieldKey as a format string (eg. "C3 $" > currency, 3 decimals, " $" symbol).
+     * Returns the value as is if fieldKey is a format not supported.
+     * 
+     * @param string $fieldKey  Reference key used in the callback function to select the formatting algorithm. Mask: "FXS" F:format ("F":float, "I":integer, "P":%, "C":currency, "N":none), X:0..9 (decimal count), S:symbol (" $", " €", "")
+     * @param mixed $fieldValue Value to format
+     * @return string Formatted value
+     */
+    public function FormatValue(string $fieldKey, $fieldValue): string
+    {
+        // Apply custom format code (if defined) using $fieldKey as a reference key
+        if ($this->formatCallback !== null && is_callable($this->formatCallback)) {
+            $sRet = call_user_func($this->formatCallback, $fieldKey, $fieldValue);
+            if (!empty($sRet)) return $sRet;
+        }
+        // Apply standard format using $fieldKey as a format mask
+        $formatted = (string)$fieldValue;
+        $firstChar = strtoupper($fieldKey[0] ?? '');
+        $decCount = $fieldKey[1] ?? null;
+        $symbol = null;
+        if (strlen($fieldKey) > 2) {
+            $symbol = substr($fieldKey, 2);
+        }
+
+        $currencySymbol = (string)$this->GetVar('CURRENCYSYMBOL', ' €');
+        $numericSymbol = (string)$this->GetVar('NUMERICSYMBOL', '');
+        $currencyDecimalCount = (int)$this->GetVar('CURRENCYDECIMALCOUNT', 2);
+        $numericDecimalCount = (int)$this->GetVar('NUMERICDECIMALCOUNT', 2);
+        $numericDecimalSeparator = (string)$this->GetVar('NUMERICDECIMALSEPARATOR', ',');
+        $numericThousandSeparator = (string)$this->GetVar('NUMERICTHOUSANDSEPARATOR', '.');
+
+        switch ($firstChar) {
+            case 'F':
+                // Float with decimals
+                if (!ctype_digit($decCount)) {
+                    $decCount =  $numericDecimalCount;
+                }
+                $formatted = number_format((float)$fieldValue, $decCount, $numericDecimalSeparator, $numericThousandSeparator);
+                $formatted .= $numericSymbol;
+                break;
+            case 'I':
+                // Integer without decimals
+                $formatted = number_format((float)$fieldValue, 0, $numericDecimalSeparator, $numericThousandSeparator);
+                $formatted .= $numericSymbol;
+                break;
+            case 'P':
+            case '%':
+                // Percentage (%)
+                if (is_null($symbol)) {
+                    $symbol = ' %';
+                }
+                if (!ctype_digit($decCount)) {
+                    $decCount = $numericDecimalCount;
+                }
+                $formatted = number_format((float)$fieldValue, $decCount, $numericDecimalSeparator, $numericThousandSeparator);
+                $formatted .= $symbol;
+                break;
+            case 'C':
+                // Currency
+                if (is_null($symbol)) {
+                    $symbol = $currencySymbol;
+                }
+                if (!ctype_digit($decCount)) {
+                    $decCount = $currencyDecimalCount;
+                }
+                $formatted = number_format((float)$fieldValue, $decCount, $numericDecimalSeparator, $numericThousandSeparator);
+                $formatted .= $symbol;
+                break;
+            case 'N':
+                // None (empty value)
+                $formatted = '';
+                break;
+        }
+        return $formatted;
     }
 
     // ***************************
@@ -98,11 +193,55 @@ class PDFReport
             $varkey = strtoupper(trim($varkey));
             $varkey = str_ireplace('{', '', $varkey);
             $varkey = str_ireplace('}', '', $varkey);
-            if ($overwrite || (!$overwrite && !array_key_exists($varkey, $this->varList)))
+            // Standard user var or system var
+            if ($overwrite || (!$overwrite && !array_key_exists($varkey, $this->varList))) {
                 $this->varList[$varkey] = $varvalue;
+            }
             return true;
         }
         return false;
+    }
+
+    // ***************************
+
+    /**
+     * Get variabile value by key
+     * 
+     * @access public
+     * @param string $varkey                Variable key, UPPERCASE format, without {}
+     * @param object $defaultValue          Variable default value if key is not found
+     * @return object                       Variable value or default value
+     */
+    public function GetVar($varkey, $defaultValue = '')
+    {
+        if (strlen(trim($varkey)) > 0) {
+            $varkey = strtoupper(trim($varkey));
+            $varkey = str_ireplace('{', '', $varkey);
+            $varkey = str_ireplace('}', '', $varkey);
+            // Get standard user var or system var value
+            if (array_key_exists($varkey, $this->varList)) {
+                return $this->varList[$varkey];
+            } else {
+                return $defaultValue;
+            }
+            
+        }
+        return $defaultValue;
+    }
+
+    // ***************************
+
+    private function InitializeSystemVar() : void 
+    {
+        $this->SetVar('CURRENCYSYMBOL', ' €');
+        $this->SetVar('NUMERICSYMBOL', '');
+        $this->SetVar('CURRENCYDECIMALCOUNT', 2);
+        $this->SetVar('NUMERICDECIMALCOUNT', 2);
+        $this->SetVar('NUMERICDECIMALSEPARATOR', ',');
+        $this->SetVar('NUMERICTHOUSANDSEPARATOR', '.');
+        
+        // TODO: Add here initialization for any new system var
+        
     }
 
     // ***************************
@@ -199,7 +338,7 @@ class PDFReport
         }
         // Set section parameters
         $sec->y_start = $this->LoadValue($section, 'y_start', $sec->y_start);               // Y position of the section start printing (where the first line is printed)
-        $sec->row_height = $this->LoadValue($section, 'row_height', $sec->row_height);      // Height of a single row. Each time a new data row is read, a new print row is added until the y_end or rows_count condition is reached.
+        $sec->row_height = $this->LoadValue($section, 'row_height', $sec->row_height);      // Height of a single row. Each time a new data row is read, a new print row is added until the y_end OR rows_count condition is reached.
         $sec->y_end = $this->LoadValue($section, 'y_end', $sec->y_end);                     // Maximum section height. If the printed sequence of lines (rows) exceeds this, a page break is performed.
         $sec->rows_count = $this->LoadValue($section, 'rows_count', $sec->rows_count);      // Maximum lines (rows) per page counter. Alternative to y_end. When one of the two conditions is met, a page break is performed.
         
@@ -260,7 +399,7 @@ class PDFReport
     {
         $sRet = $strWithTags;
         if (!$this->TagsExists($sRet)) return $sRet;       // No tags to replace
-        // Replace CONSTANT tags
+        // Replace system var
         $sRet = str_ireplace('{CURRENTDATE}', date('d/m/Y'), $sRet);
         $sRet = str_ireplace('{CURRENTTIME}', date('H:i:s'), $sRet);
         $sRet = str_ireplace('{PAGEINDEX}', $this->pageIndex, $sRet);
@@ -276,9 +415,9 @@ class PDFReport
         $sRet = str_ireplace('{RAND7}', random_int(1000000, 9999999), $sRet);
         $sRet = str_ireplace('{RAND8}', random_int(10000000, 99999999), $sRet);
 
-        // TODO : Add more str_ireplace commands here to manage further new CONSTANT tags...
+        // TODO: Add more str_ireplace commands here to manage further new CONSTANT tags...
 
-        // Replace tags using assciative array varList
+        // Replace tags using associative array varList
         foreach ($this->varList as $varkey => $varvalue) {
             $sRet = str_ireplace('{' . $varkey . '}', $varvalue, $sRet);
         }
@@ -609,7 +748,7 @@ class PDFReport
                     case 'section':
                         // Process all subsections contained in the current section
                         if (is_array($element) && array_is_list($element)) {
-                            // TODO : To allow Multiple nested sections a section push/pop queue must be developer to replace simple $prevSec property (previous section)
+                            // TODO: To allow Multiple nested sections a section push/pop queue must be developer to replace simple $prevSec property (previous section)
                             //foreach ($element as $sub_section)
                             //    $this->ProcessSection($template, $sub_section, $contents);
                             // Error
@@ -671,7 +810,7 @@ class PDFReport
         // Process content elements (PDF document objects)
         foreach ($content as $key => $element) {
             // Manage here PDF document element generation
-            // TODO : Add management of each new item here
+            // TODO: Add management of each new item here
             $subKey = explode('.', $key)[0];
             switch (strtolower($subKey)) {
                 case 'rem':
@@ -679,7 +818,7 @@ class PDFReport
                     // Do not process comments
                     break;
                 case 'id':
-                    // TODO : Process all attributes
+                    // TODO: Process all attributes
                     break;
                 case 'page':
                     // Add a new page to the document
@@ -692,6 +831,10 @@ class PDFReport
                 case 'box':
                     // text (alias of box)
                     $this->ProcessBox($key, $element, $x_offset, $y_offset);
+                    break;
+                case 'textfit':
+                    // Current text fit into box
+                    $this->ProcessTextFit($key, $element);
                     break;
                 case 'rectangle':
                 case 'rect':
@@ -745,6 +888,7 @@ class PDFReport
                 case 'set_var':
                     $this->ProcessVar($key, $element);
                     break;
+                
                 default:
                     // Error
                     throw new \Exception('PDFReport.ProcessContent() : Unsupported XML content element [' . $key . ']');
@@ -790,6 +934,22 @@ class PDFReport
 		$this->pdf->SetAlpha($alpha);
 	}
 
+    // ***************************
+
+    /**
+     * Generate PDF file
+     * 
+     * @access private
+     * @param string $key			        Element key
+     * @param string $element			    Associative array element with text fit default value: None, Auto (default), Truncate, Resize
+     * @return void                         No return
+     */
+	private function ProcessTextFit($key, $element) : void
+    {
+		$textFitCode = $this->LoadValue($element, 'value', 'Auto', true);
+        $this->textFit = $this->NormalizeTextFit($textFitCode);
+	}
+
 	// ***************************
 	
     /**
@@ -827,11 +987,12 @@ class PDFReport
 	private function ProcessLine($key, $element, $x_offset, $y_offset)
 	{
         // Line position
-		$x1 = $this->LoadValue($element, 'x1', 0, true) + $x_offset;                // x1..y2 : Required
-		$y1 = $this->LoadValue($element, 'y1', 0, true) + $y_offset;   
-		$x2 = $this->LoadValue($element, 'x2', 0, true) + $x_offset;
-		$y2 = $this->LoadValue($element, 'y2', 0, true) + $y_offset;
-		
+        $box = $this->processBoxSettings('ProcessLine', $element, $x_offset, $y_offset);
+        $x1 = $box->x1;
+        $y1 = $box->y1;
+        $x2 = $box->x2;
+        $y2 = $box->y2;
+
 		// Line style : width, color, dash, ...
         $line = $this->line;
         $linestyle_element = $this->LoadValue($element, 'linestyle', []);
@@ -894,29 +1055,38 @@ class PDFReport
 		//var_dump($element);
 		//die();
 		
-		// Font (optional, use default font if custom font is not set)
+		// Print area
+        $box = $this->processBoxSettings('ProcessBox', $element, $x_offset, $y_offset);
+        $x1 = $box->x1;
+        $y1 = $box->y1;
+        $x2 = $box->x2;
+        $y2 = $box->y2;
+
+        // Border
+		$border = $this->LoadValue($element, 'border', 1, false, true);
+        
+        // Format mask
+        $valueFormat = $this->LoadValue($element, 'valueformat|format|valuemask|mask', '', false);
+
+        // Text
+		$text = $this->LoadValue($element, 'text', '', false, true);        // Replace placeholders {id.xxx} with data
+		if (is_array($text)) 
+			$text = '';
+        if (!empty($valueFormat) && !empty($text)) {
+            $text = $this->FormatValue($valueFormat, $text);                // Format value
+        }
+		
+		// Text Align (horizontal / vertical)
+		$horizalign = $this->LoadValue($element, 'align|horizalign|textalign|texthorizalign', 'L');		// L - left, C - center, R - right, J - justify
+		$vertalign = $this->LoadValue($element, 'vertalign|textvertalign', 'T');						// T - top , M - middle (C - center), B - bottom
+		
+        // Font (optional, use default font if custom font is not set)
 		$font = $this->font;
 		$font_element = $this->LoadValue($element, 'font', []);
 		if (count($font_element) > 0) {
 			$font = $this->ProcessFont('', $font_element);
 		}
 		
-		// Text
-		$text = $this->LoadValue($element, 'text', '', false, true);        // Replace placeholders {id.xxx} with data
-		if (is_array($text)) 
-			$text = '';
-		
-		// Text Align (horizontal / vertical)
-		$horizalign = $this->LoadValue($element, 'align|horizalign|textalign|texthorizalign', 'L');		// L - left, C - center, R - right, J - justify
-		$vertalign = $this->LoadValue($element, 'vertalign|textvertalign', 'T');						// T - top , M - middle, B - bottom
-		
-		// Border
-		$x1 = $this->LoadValue($element, 'x1', 0, true) + $x_offset;
-		$y1 = $this->LoadValue($element, 'y1', 0, true) + $y_offset;
-		$x2 = $this->LoadValue($element, 'x2', 0, true) + $x_offset;
-		$y2 = $this->LoadValue($element, 'y2', 0, true) + $y_offset;
-		$border = $this->LoadValue($element, 'border', 1);
-        
 		// Line style : width, color, dash, ...
         $line = $this->line;
         $linestyle_element = $this->LoadValue($element, 'linestyle', []);
@@ -935,7 +1105,7 @@ class PDFReport
         $rotateAngle = $this->LoadValue($element, 'rotate|rotateangle', 0.0);
 		
 		// Print box
-		$this->PdfBox($x1, $y1, $x2, $y2, $text, $font, $horizalign, $vertalign, $border, $line, $fill, $rotateAngle);
+		$this->PdfBox($x1, $y1, $x2, $y2, $text, $font, $horizalign, $vertalign, $border, $line, $fill, $rotateAngle, $box->textFit);
 		
 	}
 
@@ -965,10 +1135,12 @@ class PDFReport
 		*/
 
 		// Pie chart container, chart size (radius) and style
-		$x1 = $this->LoadValue($element, 'x1', 0, true);            // x1,y1,x2,y2 : pie chart container area
-		$y1 = $this->LoadValue($element, 'y1', 0, true);            // (apply x_offset and y_offset after legend initialization)
-		$x2 = $this->LoadValue($element, 'x2', 0, true);
-		$y2 = $this->LoadValue($element, 'y2', 0, true);
+        $box = $this->processBoxSettings('ProcessPieChart', $element, 0, 0);
+        $x1 = $box->x1;
+        $y1 = $box->y1;
+        $x2 = $box->x2;
+        $y2 = $box->y2;
+
         $border = $this->LoadValue($element, 'border', 0);
         $radius = $this->LoadValue($element, 'r|radius', 0);                    // r=0 : Auto calculate PieChart radius to fill container area
 		$style = strtoupper($this->LoadValue($element, 'style', 'DONUTS'));     // DONUTS = Ring style
@@ -1014,10 +1186,12 @@ class PDFReport
 		}	
         
 		// Gauge chart container, chart size (radius) and style
-		$x1 = $this->LoadValue($element, 'x1', 0, true);            // x1,y1,x2,y2 : chart container area
-		$y1 = $this->LoadValue($element, 'y1', 0, true);            // (apply x_offset and y_offset after chart initialization)
-		$x2 = $this->LoadValue($element, 'x2', 0, true);
-		$y2 = $this->LoadValue($element, 'y2', 0, true);
+        $box = $this->processBoxSettings('ProcessGaugeChart', $element, 0, 0);
+        $x1 = $box->x1;
+        $y1 = $box->y1;
+        $x2 = $box->x2;
+        $y2 = $box->y2;
+
         $border = $this->LoadValue($element, 'border', 0);
         $radius = $this->LoadValue($element, 'r|radius', 0);                    // r=0 : Auto calculate chart radius to fill container area
 		$style = strtoupper($this->LoadValue($element, 'style', 'DONUTS'));     // DONUTS = Ring style (default)
@@ -1092,10 +1266,12 @@ class PDFReport
 		}	
         
 		// Kpi chart container, radius, title, ...
-		$x1 = $this->LoadValue($element, 'x1', 0, true);            // x1,y1,x2,y2 : chart container area
-		$y1 = $this->LoadValue($element, 'y1', 0, true);            // (apply x_offset and y_offset after chart initialization)
-		$x2 = $this->LoadValue($element, 'x2', 0, true);
-		$y2 = $this->LoadValue($element, 'y2', 0, true);
+        $box = $this->processBoxSettings('ProcessKpiChart', $element, 0, 0);
+        $x1 = $box->x1;
+        $y1 = $box->y1;
+        $x2 = $box->x2;
+        $y2 = $box->y2;
+
         $border = $this->LoadValue($element, 'border', 0);
         $radius = $this->LoadValue($element, 'r|radius', 0);
 		$title = $this->LoadValue($element, 'title', '');
@@ -1176,10 +1352,12 @@ class PDFReport
 		}
 
 		// Chart container, chart size and style (eg. orientation vertical or horizontal)
-		$x1 = $this->LoadValue($element, 'x1', 0, true);            // x1,y1,x2,y2 : Chart container area
-		$y1 = $this->LoadValue($element, 'y1', 0, true);            // (apply x_offset and y_offset after legend initialization)
-		$x2 = $this->LoadValue($element, 'x2', 0, true);
-		$y2 = $this->LoadValue($element, 'y2', 0, true);
+        $box = $this->processBoxSettings('ProcessSingleBarChart', $element, 0, 0);
+        $x1 = $box->x1;
+        $y1 = $box->y1;
+        $x2 = $box->x2;
+        $y2 = $box->y2;
+
         $minValue = $this->LoadValue($element, 'minvalue', 0);
         $maxValue = $this->LoadValue($element, 'maxvalue', 0);      // 0 = Autoscale to total data items value
         //$border = $this->LoadValue($element, 'border', 0);
@@ -1235,11 +1413,23 @@ class PDFReport
 			$axisFont = $this->ProcessFont('', $font_element);          // Axis font
 		}
 
+        // Axis line style : width, color, dash, ...
+        $axisLine = $this->line;
+        $linestyle_element = $this->LoadValue($element, 'axislinestyle', []);
+        if (count($linestyle_element) > 0) {
+            $axisLine = $this->ProcessLineStyle('', $linestyle_element, false, false);
+		}
+
+        // Load the measures list
+        $measures = $this->ProcessMeasures($key, $element);
+
 		// Chart container, chart size and style (eg. orientation vertical or horizontal)
-		$x1 = $this->LoadValue($element, 'x1', 0, true);                // x1,y1,x2,y2 : Chart container area
-		$y1 = $this->LoadValue($element, 'y1', 0, true);                // (apply x_offset and y_offset after legend initialization)
-		$x2 = $this->LoadValue($element, 'x2', 0, true);
-		$y2 = $this->LoadValue($element, 'y2', 0, true);
+        $box = $this->processBoxSettings('ProcessBarChart', $element, 0, 0);
+        $x1 = $box->x1;
+        $y1 = $box->y1;
+        $x2 = $box->x2;
+        $y2 = $box->y2;
+
         $minValue = $this->LoadValue($element, 'minvalue', 0);
         $maxValue = $this->LoadValue($element, 'maxvalue', 0);          // 0 = Autoscale based on max values of data items
         //$border = $this->LoadValue($element, 'border', 0);
@@ -1270,11 +1460,54 @@ class PDFReport
         $dataItems = $this->LoadDataItems($element);
 
 		// BarChart
-		$chart = new PDFBarChart($x1, $y1, $x2, $y2, $isVertical, $minValue, $maxValue, $barSize, $barMargin, $title, $font, $legendSettings, $dataItems, $ticksCount);
+		$chart = new PDFBarChart($x1, $y1, $x2, $y2, $isVertical, $minValue, $maxValue, $barSize, $barMargin, $title, $font, $measures, $legendSettings, $dataItems, $ticksCount);
         $chart->axisFont = $axisFont;
+        $chart->axisLine = $axisLine;
         $chart->showValuesOnDataPoint = $showValuesOnDataPoint;
         $chart->render($this);
 	}
+
+    // ***************************
+
+    private function ProcessMeasures($key, $element)
+    {
+        // Load the measures list
+        $measures = [];
+        $measures_element = $this->LoadValue($element, 'measures', [], true);           // Measures [0..n-1] - Required at least one measure
+        if (is_array($measures_element) && count($measures_element) > 0) {           
+            foreach ($measures_element as $measure) {
+                if (is_array($measure)) {
+                    // Unique ID (optional)
+                    $id = $this->LoadValue($measure, 'id|key', '');
+                    // Measure Label (required)
+                    $label = $this->LoadValue($measure, 'label', '', true, true);
+                    // Measure value format mask or value format key for user defined callback format function
+                    $valueFormat = $this->LoadValue($measure, 'valueformat|format|valuemask|mask', '', false);
+                    // Measure Line style : width, color, dash, ...      
+                    $line = $this->line;
+                    $linestyle_element = $this->LoadValue($measure, 'linestyle', []);
+                    if (count($linestyle_element) > 0) {
+                        $line = $this->ProcessLineStyle('', $linestyle_element, false, false);
+                    }
+                    // Fill style and color/s
+                    $fill = $this->fill;
+                    $fill_element = $this->LoadValue($measure, 'fillstyle|fill', []);
+                    if (count($fill_element) > 0) {
+                        $fill = $this->ProcessFill('', $fill_element, false, false);
+                    }
+                    // Measure Symbol settings for data points
+                    $symbol = null;
+                    $symbol_element = $this->LoadValue($measure, 'symbolstyle', []);
+                    if (count($symbol_element) > 0) {
+                        $symbol = $this->ProcessSymbolStyle('', $symbol_element);
+                    } 
+                    // Add measure lo measures list
+                    $measures[] = new PDFMeasure($id, $label, $valueFormat, $line, $fill, $symbol);
+                }
+            }
+		}
+        return $measures;
+    }
 
     // ***************************
 
@@ -1303,43 +1536,22 @@ class PDFReport
 		}
 
         // Axis line style : width, color, dash, ...
-        $line = $this->line;
+        $axisLine = $this->line;
         $linestyle_element = $this->LoadValue($element, 'axislinestyle', []);
         if (count($linestyle_element) > 0) {
-            $line = $this->ProcessLineStyle('', $linestyle_element, false, false);
+            $axisLine = $this->ProcessLineStyle('', $linestyle_element, false, false);
 		}
 
         // Load the measures list
-        $measures = [];
-        $measures_element = $this->LoadValue($element, 'measures', [], true);   // Measures [0..n-1] - Required at least one measure
-        if (is_array($measures_element) && count($measures_element) > 0) {           
-            foreach ($measures_element as $measure) {
-                if (is_array($measure)) {
-                    // Measure Label - Required
-                    $label = $this->LoadValue($measure, 'label', '', true, true);
-                    // Measure Line style : width, color, dash, ...      
-                    $line = $this->line;
-                    $linestyle_element = $this->LoadValue($measure, 'linestyle', []);
-                    if (count($linestyle_element) > 0) {
-                        $line = $this->ProcessLineStyle('', $linestyle_element, false, false);
-                    }
-                    // Measure Symbol settings for data points
-                    $symbol = null;
-                    $symbol_element = $this->LoadValue($measure, 'symbolstyle', []);
-                    if (count($symbol_element) > 0) {
-                        $symbol = $this->ProcessSymbolStyle('', $symbol_element);
-                    } 
-                    // Add measure lo measures list
-                    $measures[] = new PDFMeasure($label, $line, $symbol);
-                }
-            }
-		}
+        $measures = $this->ProcessMeasures($key, $element);
 
 		// Chart container, chart size and style (eg. orientation vertical or horizontal)
-		$x1 = $this->LoadValue($element, 'x1', 0, true);                // x1,y1,x2,y2 : Chart container area
-		$y1 = $this->LoadValue($element, 'y1', 0, true);                // (apply x_offset and y_offset after legend initialization)
-		$x2 = $this->LoadValue($element, 'x2', 0, true);
-		$y2 = $this->LoadValue($element, 'y2', 0, true);
+        $box = $this->processBoxSettings('ProcessLineChart', $element, 0, 0);
+        $x1 = $box->x1;
+        $y1 = $box->y1;
+        $x2 = $box->x2;
+        $y2 = $box->y2;
+
         $minValue = $this->LoadValue($element, 'minvalue', 0);
         $maxValue = $this->LoadValue($element, 'maxvalue', 0);          // 0 = Autoscale based on max values of data items
         //$border = $this->LoadValue($element, 'border', 0);
@@ -1370,6 +1582,7 @@ class PDFReport
 		// LineChart
 		$chart = new PDFLineChart($x1, $y1, $x2, $y2, $minValue, $maxValue, $title, $font, $measures, $legendSettings, $dataItems, $ticksCount);
         $chart->axisFont = $axisFont;
+        $chart->axisLine = $axisLine;
         $chart->style = $chartStyle;
         $chart->opacity = $opacity;
         $chart->render($this);
@@ -1450,11 +1663,14 @@ class PDFReport
      */
 	private function ProcessRectangle($key, $element, $x_offset, $y_offset)
 	{
-		// Border
-		$x1 = $this->LoadValue($element, 'x1', 0, true) + $x_offset;
-		$y1 = $this->LoadValue($element, 'y1', 0, true) + $y_offset;
-		$x2 = $this->LoadValue($element, 'x2', 0, true) + $x_offset;
-		$y2 = $this->LoadValue($element, 'y2', 0, true) + $y_offset;
+		// Rectangle area
+        $box = $this->processBoxSettings('ProcessRectangle', $element, $x_offset, $y_offset);
+        $x1 = $box->x1;
+        $y1 = $box->y1;
+        $x2 = $box->x2;
+        $y2 = $box->y2;
+
+        // Border radius and style
         $r = $this->LoadValue($element, 'r|radius', 0, false) + $y_offset;
 		$border = $this->LoadValue($element, 'border', '1111');                // 1=show border, 0=no border  (4 values : left, top, right, bottom)
 		
@@ -1499,12 +1715,12 @@ class PDFReport
 			color (array): Draw color. Format: array(GREY) or array(R,G,B) or array(C,M,Y,K) or array(C,M,Y,K,SpotColorName).
 		*/
         $lineSettings = new PDFLineSettings();
-		$lineSettings->width = $this->LoadValue($element, 'linewidth|width', $this->line->width);
-		$lineSettings->cap = $this->LoadValue($element, 'linecap|cap', $this->line->cap);
-		$lineSettings->join = $this->LoadValue($element, 'linejoin|join', $this->line->join);
-		$lineSettings->dash = $this->LoadValue($element, 'linedash|dash', $this->line->dash);
-		$lineSettings->phase = $this->LoadValue($element, 'linephase|phase', $this->line->phase);
-		$lineSettings->rgbColor = $this->LoadValue($element, 'linecolor|color', $this->line->rgbColor);       // RGB hex format, eg. FF0000 (red)
+		$lineSettings->width = $this->LoadValue($element, 'linewidth|width', $this->line->width, false, true);
+		$lineSettings->cap = $this->LoadValue($element, 'linecap|cap', $this->line->cap, false, true);
+		$lineSettings->join = $this->LoadValue($element, 'linejoin|join', $this->line->join, false, true);
+		$lineSettings->dash = $this->LoadValue($element, 'linedash|dash', $this->line->dash, false, true);
+		$lineSettings->phase = $this->LoadValue($element, 'linephase|phase', $this->line->phase, false, true);
+		$lineSettings->rgbColor = $this->LoadValue($element, 'linecolor|color', $this->line->rgbColor, false, true);       // RGB hex format, eg. FF0000 (red)
 		if ($applySettings)
             $this->PdfSetLineStyle($lineSettings);
         if ($setAsDefault)
@@ -1557,18 +1773,21 @@ class PDFReport
      */
 	private function ProcessLegend($key, $element, $x_offset, $y_offset, $defaultX1, $defaultY1, $defaultX2, $defaultY2) : PDFLegendSettings
 	{
-        // Legend settings
-        $position = strtoupper($this->LoadValue($element, 'position', 'BOTTOM'));       // Legend position : N/NONE, T/TOP, B/BOTTOM, R/RIGHT, L/LEFT
-        $orientation = strtoupper($this->LoadValue($element, 'orientation', 'HORIZ'));  // H/HORIZ/HORIZONTAL, V/VERT/VERTICAL
+        // Legend area
+        $box = $this->processBoxSettings('ProcessLegend', $element, $x_offset, $y_offset);
+        $x1 = $box->x1;
+        $y1 = $box->y1;
+        $x2 = $box->x2;
+        $y2 = $box->y2;
+
+        // Other legend settings
+        $position = strtoupper($this->LoadValue($element, 'position', 'BOTTOM'));           // Legend position : N/NONE, T/TOP, B/BOTTOM, R/RIGHT, L/LEFT
+        $orientation = strtoupper($this->LoadValue($element, 'orientation', 'HORIZ'));      // H/HORIZ/HORIZONTAL, V/VERT/VERTICAL
         $isVertical = str_starts_with($orientation, 'V');
-        $x1 = $this->LoadValue($element, 'x1', $defaultX1) + $x_offset;
-        $y1 = $this->LoadValue($element, 'y1', $defaultY1) + $y_offset;
-		$x2 = $this->LoadValue($element, 'x2', $defaultX2) + $x_offset;
-		$y2 = $this->LoadValue($element, 'y2', $defaultY2) + $y_offset;
-		$radius = $this->LoadValue($element, 'r|radius', 0);                        // Border radius of the legend background
-        $visible = strtolower($this->LoadValue($element, 'visibile', 'true'));      // 1,true,yes,on = legend is visible / 0,false,no,off = legend is hidden
+		$radius = $this->LoadValue($element, 'r|radius', 0);                                // Border radius of the legend background
+        $visible = strtolower($this->LoadValue($element, 'visibile', 'true'));              // 1,true,yes,on = legend is visible / 0,false,no,off = legend is hidden
         $isVisible = ($visible == '1' || $visible == 'true' || $visible == 'yes' || $visible == 'on');
-        $opacity = $this->LoadValue($element, 'opacity', 1.0);                      // 0..1
+        $opacity = $this->LoadValue($element, 'opacity', 1.0);                              // 0..1
         if ($opacity < 0.0) $opacity = 0.0;
         if ($opacity > 1.0) $opacity = 1.0;
 
@@ -1596,7 +1815,7 @@ class PDFReport
             $fill = $this->ProcessFill('', $fill_element, false, false);
 		}
 
-        // TODO : Process new additional properties here...
+        // TODO: Process new additional properties here...
 
         $settings = new PDFLegendSettings($x1, $y1, $x2, $y2, $radius, $isVisible, $opacity, $title, $font, $isVertical, $line, $fill);
         return $settings;
@@ -1620,10 +1839,10 @@ class PDFReport
             $defaultFont = $this->font;
         }   
 		$font = new PDFFontSettings($defaultFont->family, $defaultFont->style, $defaultFont->size, $defaultFont->rgbColor);
-		$font->family = $this->LoadValue($element, 'fontfamily|family', $font->family);
-		$font->style =  $this->LoadValue($element, 'fontstyle|style', $font->style);
-		$font->size =  $this->LoadValue($element, 'fontsize|size', $font->size);
-		$font->SetRGBColor($this->LoadValue($element, 'fontcolor|color', $font->rgbColor));       // RGB hex format
+		$font->family = $this->LoadValue($element, 'fontfamily|family', $font->family, false, true);
+		$font->style =  $this->LoadValue($element, 'fontstyle|style', $font->style, false, true);
+		$font->size =  $this->LoadValue($element, 'fontsize|size', $font->size, false, true);
+		$font->SetRGBColor($this->LoadValue($element, 'fontcolor|color', $font->rgbColor, false, true));       // RGB hex format
 		return $font;
 	}
 	
@@ -1694,10 +1913,15 @@ class PDFReport
      */
 	private function ProcessBarcode($key, $element, $x_offset, $y_offset)
 	{
-		$this->barcode->x = $this->LoadValue($element, 'x', 0) + $x_offset;
-		$this->barcode->y = $this->LoadValue($element, 'y', 0) + $y_offset;
-		$this->barcode->width = $this->LoadValue($element, 'width', $this->barcode->width);
-		$this->barcode->height = $this->LoadValue($element, 'height', $this->barcode->height);
+        // Barcode area
+        $box = $this->processBoxSettings('ProcessBarcode', $element, $x_offset, $y_offset);
+        
+        $this->barcode->x = $box->x1;
+		$this->barcode->y = $box->y1;
+		$this->barcode->width = $box->width;
+		$this->barcode->height = $box->height;
+
+        // Other barcode settings
 		$this->barcode->align = $this->LoadValue($element, 'align', $this->barcode->align);
 		$this->barcode->type = $this->LoadValue($element, 'type', $this->barcode->type);
 		$value = $this->LoadValue($element, 'value', $this->barcode->value, true, true);              // {id.xxx}
@@ -1720,21 +1944,18 @@ class PDFReport
 	private function ProcessImage($key, $element, $x_offset, $y_offset)
 	{
 		// public Image(string $file[, float|null $x = null ][, float|null $y = null ][, float $w = 0 ][, float $h = 0 ][, string $type = '' ][, mixed $link = '' ][, string $align = '' ][, mixed $resize = false ][, int $dpi = 300 ][, string $palign = '' ][, bool $ismask = false ][, mixed $imgmask = false ][, mixed $border = 0 ][, mixed $fitbox = false ][, bool $hidden = false ][, bool $fitonpage = false ][, bool $alt = false ][, array<string|int, mixed> $altimgs = array() ]) : mixed|false
+
+        // Image file
 		$file = $this->LoadValue($element, 'file', '', true);
-		$x = $this->LoadValue($element, 'x|x1', 0, true) + $x_offset;
-		$y = $this->LoadValue($element, 'y|y1', 0, true) + $y_offset;
-        if ($this->ValueExists($element, 'width') && $this->ValueExists($element, 'height')) {
-            $width = $this->LoadValue($element, 'width', 30);
-		    $height = $this->LoadValue($element, 'height', 20);
-        } else if (($this->ValueExists($element, 'x2') && $this->ValueExists($element, 'y2'))) {
-            $x2 = $this->LoadValue($element, 'x2', 0) + $x_offset;
-		    $y2 = $this->LoadValue($element, 'y2', 0) + $y_offset;
-            $width = $x2 - $x;
-            $height = $y2 - $y;
-        } else {
-            // Error - missing required argument 
-            throw new \Exception('PDFReport.ProcessImage() : Missing required argumnets [width,height or x2,y2]');
-        }
+
+        // Image area
+        $box = $this->processBoxSettings('ProcessImage', $element, $x_offset, $y_offset);
+        $x = $box->x1;
+        $y = $box->y1;
+        $width = $box->width;
+        $height = $box->height;
+
+        // Other image settings
         $align = $this->LoadValue($element, 'align', '');
         $palign = $this->LoadValue($element, 'palign', '');
         $border = $this->LoadValue($element, 'border', '0');
@@ -1780,7 +2001,9 @@ class PDFReport
 		$type = trim(strtoupper($this->LoadValue($element, 'type', $this->fill->type)));
 		$rgbColor1 = $this->LoadValue($element, 'startcolor|color|color1', $this->fill->rgbColor1, true, true);         // startcolor. Required always. {id.xxx}
 		$rgbColor2 = $this->LoadValue($element, 'endcolor|color2', $this->fill->rgbColor2, false, true);                // endcolor (for gradient) {id.xxx}
-		$fillSettings = new PDFFillSettings($type, $rgbColor1, $rgbColor2);
+        $orientation = strtoupper($this->LoadValue($element, 'orientation', 'horizontal'));                             // h / horiz / horizontal, v / vert / vertical
+        $isVertical = str_starts_with(strtolower($orientation), 'v');
+		$fillSettings = new PDFFillSettings($type, $rgbColor1, $rgbColor2, $isVertical);
         if ($applySettings) {
             if ($fillSettings->type == 'S') {
                 // Solid fill
@@ -1870,7 +2093,7 @@ class PDFReport
 
     // ***************************
 
-	public function PdfBox(float $x1, float $y1, float $x2, float $y2, string $text = '', ?PDFFontSettings $font = null, $horizalign = 'L', $vertalign = 'M', $border = 1, ?PDFLineSettings $line = null, ?PDFFillSettings $fill = null, float $rotateAngle = 0.0)
+	public function PdfBox(float $x1, float $y1, float $x2, float $y2, string $text = '', ?PDFFontSettings $font = null, $horizalign = 'L', $vertalign = 'M', $border = 1, ?PDFLineSettings $line = null, ?PDFFillSettings $fill = null, float $rotateAngle = 0.0, TextFit $textFit = TextFit::Auto)
     {
         $this->pdf->setXY($x1, $y1);
         $width = abs($x2 - $x1);
@@ -1888,11 +2111,27 @@ class PDFReport
 			$this->PdfSetFont($font);
 			$fontUpdated = true;
 		}
-		
-        $max_rows = 1;
-        while ($this->pdf->getStringHeight($width, $text) > ($max_rows * $height)) {
-            $text = substr($text, 0, -1);       // Rimuove un carattere alla volta
-            if (strlen($text) == 0) break;      // Se la stringa viene completamente cancellata, provare ad aumentare le dimenisoni del box (altezza/larghezza)
+	
+        $fitToCell = false;
+        if ($textFit == TextFit::Auto || $textFit == TextFit::Truncate) { 
+            // Auto : Truncate text, if truncate fails (empty string) scales down font if text is too large
+            $max_rows = 1;
+            $fullText = $text;
+            while ($this->pdf->getStringHeight($width, $text) > ($max_rows * $height)) {
+                $text = mb_substr($text, 0, -1);       // Removes one character at a time
+                if (mb_strlen($text) == 0) {
+                    // If the string is completely deleted is necessary to increasing the box size (height/width) or rescale the text to fit it into the box
+                    if ($textFit == TextFit::Auto) {
+                        // Restore full text, scales down font if text is too large 
+                        $text = $fullText;
+                        $fitToCell = true;
+                    }
+                    break;      
+                }
+            }
+        } else if ($textFit == TextFit::Resize) {
+            // Resize : Scales down font if text is too large
+            $fitToCell = true;
         }
 
 		$horizalign = $this->NormalizeHorizontalTextAlignment($horizalign);		// Horizontal text alignment
@@ -1910,7 +2149,7 @@ class PDFReport
                 case 'L':
 				case 'G':
                     // L- Linear gradient
-                    $this->pdf->LinearGradient($x1, $y1, $width, $height, $fill->GetStartColor(), $fill->GetEndColor());
+                    $this->pdf->LinearGradient($x1, $y1, $width, $height, $fill->GetStartColor(), $fill->GetEndColor(), $fill->GetDirectionArray($x1, $y1, $x2, $y2));
                     break;
                 case 'R':
                     // R - Radial gradient
@@ -1921,7 +2160,7 @@ class PDFReport
                 $this->pdf->StartTransform();
                 $this->pdf->Rotate($rotateAngle, $x1, $y1);
             }
-            $this->pdf->MultiCell($width, $height, $text, $border, $horizalign, $fillCell, 1, $x1, $y1, true, 0, false, true, $height, $vertalign);
+            $this->pdf->MultiCell($width, $height, $text, $border, $horizalign, $fillCell, 1, $x1, $y1, true, 0, false, true, $height, $vertalign, $fitToCell);
             if ($rotateAngle != 0.0) {
                 $this->pdf->StopTransform();
             }
@@ -1935,12 +2174,32 @@ class PDFReport
                 $this->pdf->StartTransform();
                 $this->pdf->Rotate($rotateAngle, $x1, $y1);
             }
-            $this->pdf->MultiCell($width, $height, $text, $border, $horizalign, $fillCell, 1, $x1, $y1, true, 0, false, true, $height, $vertalign);
+            $this->pdf->MultiCell($width, $height, $text, $border, $horizalign, $fillCell, 1, $x1, $y1, true, 0, false, true, $height, $vertalign, $fitToCell);
             if ($rotateAngle != 0.0) {
                 $this->pdf->StopTransform();
             }
         } 
 
+        /*
+        $pdf->MultiCell(
+            $width,       // 1. Width
+            $height,      // 2. Height
+            $text,        // 3. Text
+            $border,      // 4. Border
+            $horizalign,  // 5. Horizontal Alignment
+            $fillCell,    // 6. Fill
+            1,            // 7. Line break (1 = next line)
+            $x1,          // 8. X Position
+            $y1,          // 9. Y Position
+            true,         // 10. Reset height
+            0,            // 11. Stretch (character stretching)
+            false,        // 12. Is HTML
+            true,         // 13. Autopadding
+            $height,      // 14. Max Height (Crucial for fitcell to work)
+            $vertalign,   // 15. Vertical Alignment
+            true          // 16. FITCELL: Scales down font if text is too large
+        );
+        */
         //$this->pdf->Cell($width, $height, $text, $border, 0, $horizalign, $fill);
 		
 		if ($lineUpdated) {
@@ -2178,6 +2437,7 @@ class PDFReport
 			'm' => 'M',
 			'mid' => 'M',
 			'middle' => 'M',
+            'c' => 'M',
 			'cen' => 'M',
 			'center' => 'M',
 			
@@ -2229,7 +2489,7 @@ class PDFReport
      * Positive values make the color lighter, negative values make it darker.
      * @return string The new color in hexadecimal format.
      */
-    function adjustBrightnessColor($hex, $amount) {
+    public function adjustBrightnessColor($hex, $amount) {
         // Remove the leading '#' if present
         $hex = str_replace('#', '', $hex);
 
@@ -2253,5 +2513,60 @@ class PDFReport
              . str_pad(dechex($g), 2, '0', STR_PAD_LEFT)
              . str_pad(dechex($b), 2, '0', STR_PAD_LEFT);
     }
+
+    // ***************************
+
+    private function processBoxSettings($functionSourceName, $element, float $x_offset = 0.0, float $y_offset = 0.0) {
+        // Gets the print area of element
+        $x1 = $this->LoadValue($element, 'x|x1', 0, true) + $x_offset;
+		$y1 = $this->LoadValue($element, 'y|y1', 0, true) + $y_offset;
+        if ($this->ValueExists($element, 'width') && $this->ValueExists($element, 'height')) {
+            $width = $this->LoadValue($element, 'width', 0);
+		    $height = $this->LoadValue($element, 'height', 0);
+            $x2 = $x1 + $width;
+            $y2 = $y1 + $height;
+        } else if (($this->ValueExists($element, 'x2') && $this->ValueExists($element, 'y2'))) {
+            $x2 = $this->LoadValue($element, 'x2', $x1 + 30) + $x_offset;
+		    $y2 = $this->LoadValue($element, 'y2', $y1 + 10) + $y_offset;
+            $width = $x2 - $x1;
+            $height = $y2 - $y1;
+        } else {
+            // Error - missing required argument 
+            throw new \Exception('PDFReport.' . $functionSourceName . '() : Missing required arguments [width,height or x2,y2]');
+        }
+
+        $textFit = $this->textFit;                                   // If not set, use default settings 
+        $textFitCode = $this->LoadValue($element, 'textfit', '');
+        if ($textFitCode != '') {
+            // Use custom text fit setting
+            $textFit = $this->NormalizeTextFit($textFitCode);
+        }
+        $box = new PDFBoxSettings($x1, $y1, $x2, $y2, $textFit);
+        return $box;
+    }
+
+    // ***************************
+	
+	private function NormalizeTextFit(string $textFitCode): TextFit
+	{
+        $textFit = TextFit::Auto;   // Default
+        $textFitCode = trim(strtoupper($textFitCode));
+		$fitCode = $textFitCode[0] ?? '';
+        switch ($fitCode) {
+            case 'N':
+                $textFit = TextFit::None;
+                break;
+            case 'A':
+                $textFit = TextFit::Auto;
+                break;
+            case 'T':
+                $textFit = TextFit::Truncate;
+                break;
+            case 'R':
+                $textFit = TextFit::Resize;
+                break;
+        }
+		return $textFit;
+	}
 }
 

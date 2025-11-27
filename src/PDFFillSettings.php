@@ -6,28 +6,28 @@ namespace AlienProject\PDFReport;
  * PDFFillSettings class
  *
  * File :       PDFFillSettings.php
- * @version  	1.0.4 - 15/11/2025
+ * @version  	1.0.5 - 27/11/2025
  */
 class PDFFillSettings
 {
     // PDF page settings
-    public string $type = 'N';                      // N-None, S-solid, L-linear gradient, R-radial gradient
+    public string $type = 'N';                      // N-None, S-solid, L/G-linear gradient, R-radial gradient
     public string $rgbColor1 = 'FFFFFF';            // Color RGB hex format (FFFFFF : white)
     public string $rgbColor2 = 'FFFFFF';            
     private array $color1 = [0, 0, 0];              // RGB array color [ R, G, B ], RGB : 0..255
     private array $color2 = [0, 0, 0];
+    private bool $isVertical = false;               // Direction for linear gradient. isVertical = false > Horizontal (default), isVertical = true > Vertical
 
-
-    function __construct($type = 'N', $rgbColor1 = 'FFFFFF', $rgbColor2 = 'FFFFFF')
+    function __construct($type = 'N', $rgbColor1 = 'FFFFFF', $rgbColor2 = 'FFFFFF', bool $isVerticalDirection = false)
     {
-        $this->Initialize($type, $rgbColor1, $rgbColor2);
+        $this->Initialize($type, $rgbColor1, $rgbColor2, $isVerticalDirection);
     }
 
-    public function Initialize($type = 'N', $rgbColor1 = 'FFFFFF', $rgbColor2 = 'FFFFFF')
+    public function Initialize($type = 'N', $rgbColor1 = 'FFFFFF', $rgbColor2 = 'FFFFFF', bool $isVerticalDirection = false)
     {
         // Validate and fix type
         $type = substr(strtoupper(trim($type)), 0, 1);
-        if (!in_array($type, ['N', 'S', 'L', 'R'])) {
+        if (!in_array($type, ['N', 'S', 'L', 'G', 'R'])) {
             // In case of invalid fill type code, set default type to NONE
             $type = 'N';
         }
@@ -36,6 +36,7 @@ class PDFFillSettings
         $this->color1 = $this->hexToRgbArray($rgbColor1);
         $this->rgbColor2 = $rgbColor2;
         $this->color2 = $this->hexToRgbArray($rgbColor2);
+        $this->isVertical = $isVerticalDirection;
     }
 
     /**
@@ -54,6 +55,19 @@ class PDFFillSettings
     {
         $this->color2 = $this->hexToRgbArray($this->rgbColor2);
         return $this->color2;
+    }
+
+    public function GetDirectionArray(float $x1, float $y1, float $x2, float $y2) : array
+    {
+        $coord = [];
+        if ($this->isVertical) {
+            // Vertical direction
+            $coord = [ 0, 1, 0, 0 ];
+        } else {
+            // Horizontal direction
+            $coord = [ 0, 0, 1, 0 ];
+        }
+        return $coord;
     }
 
     /**

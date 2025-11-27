@@ -10,7 +10,7 @@ use mysqli_result;
  * MySQLi data provider interface
  * 
  * File :       DataProviderMySQLi.php
- * @version  	1.0.4 - 15/11/2025
+ * @version  	1.0.5 - 27/11/2025
  */
 class DataProviderMySQLi implements DataProviderInterface
 {

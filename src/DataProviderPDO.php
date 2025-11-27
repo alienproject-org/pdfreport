@@ -9,7 +9,7 @@ use PDOStatement;
  * PDO data provider class
  * 
  * File :       DataProviderPDO.php
- * @version  	1.0.4 - 15/11/2025
+ * @version  	1.0.5 - 27/11/2025
  */
 class DataProviderPDO implements DataProviderInterface
 {

@@ -12,7 +12,7 @@ enum ChartStyleType : int
  * Class that generates a line graph
  * 
  * File :       PDFLineChart.php
- * @version  	1.0.4 - 15/11/2025
+ * @version  	1.0.5 - 27/11/2025
  */
 class PDFLineChart {
     /**
@@ -32,7 +32,9 @@ class PDFLineChart {
     public ?PDFLineSettings $symbolLine = null;             // Border line settings for the symbol used to mark each data point (null=no border)
     public ChartStyleType $style = ChartStyleType::Line;
     public float $opacity = 1.0;                            // Current opacity/transparent (alpha color component setting, range: 0.0 .. 1.0)
-    
+    // Private properties
+    private bool $YAutoScale = true;
+
     /**
     * Line Chart class constructor
     *
@@ -69,6 +71,7 @@ class PDFLineChart {
         if ($ticksCount < 2) {
             $this->ticksCount = 2;
         }
+        $this->YAutoScale = ($maxValue == 0);
     }
 
     /**
@@ -84,9 +87,11 @@ class PDFLineChart {
                 $max = $itemValue;
             }
         }
-        if ($this->maxValue == 0.0) {
-            // If maxValue is not set, use the max value (auto scale)
-            $this->maxValue = $max;
+        if ($this->YAutoScale) {
+            // If auto scale is enabled, use the max value (auto scale)
+            if ($max > $this->maxValue) {
+                $this->maxValue = $max;
+            } 
         }
 
         // Calculate position (X,Y) of each data point
@@ -194,7 +199,7 @@ class PDFLineChart {
         if ($pdf == null) return;
         
         if ($this->axisLine == null) {
-            // Use default line settings for axis
+            // If not set, Use default line settings for axis
             $this->axisLine = $report->GetDefaultLine();
         }
 

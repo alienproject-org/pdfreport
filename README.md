@@ -139,7 +139,38 @@ Create an XML file in the root folder with the following code:
 
 ## Version History
 
-**Last version: 1.0.4 - 15 Nov. 2025**
+**Last version: 1.0.5 - 27 Nov. 2025**
+
+### Ver. 1.0.5 - 27 Nov. 2025
+- Added new attribute "textfit" to box element. Possible values:
+  - None : Use text as it is (no truncate, no resize)
+  - Auto (default) : Truncate text if too large. If text truncate fails, resize text (scales down font if text is too large)
+  - Truncate : Truncate text if too large
+  - Resize : Scales down font if text is too large
+- Added new attribute "format" to box element (custom text format) 
+- Added new elements:
+  - TextFit (sets the default text fitting mode, used when the "textfit" attribute is not set on the box element)
+  - Measure (define chart measures)
+- Fix for Box element (handled UTF8 multibyte text)
+- Added a new attribute "showvalues" (yes/no) to barchart element
+- Added a new attribute "format" to measure element (float, integer, currency, %, ..)
+- Added new method SetFormatCallback to call a custom callback function for values formatting
+- Minor fix for bar chart and line/area chart
+- Added more flexibility in defining the print area, using the (x1,y1)+(x2,y2) or (x,y)+(width,height) attributes, on the following elements:
+  - Box
+  - Line
+  - Rectangle
+  - Barcode
+  - Image
+  - PieChart
+  - GaugeChart
+  - KpiChart
+  - SingleBarChart
+  - BarChart
+  - LineChart (AreaChart)
+  - Legend
+- Added support for multiple measures in a bar chart (side-by-side bars)
+- The linear gradient fill style can now have either horizontal (default) or vertical direction
 
 ### Ver. 1.0.4 - 15 Nov. 2025
 - Added rotateangle (0° - 360°) attribute to box element to rotate box around angle x1,y1
@@ -195,7 +226,7 @@ Create an XML file in the root folder with the following code:
 
 ## Documentation and Interactive Testing
 
-The complete online guide is available at: https://alienproject.org/index.php?page=help
+The complete online guide is available at: https://alienproject.org/help
 
 ### Interactive Testing
 
@@ -209,4 +240,4 @@ By accessing the reserved area, you can interactively run the example reports pr
 
 For more information and examples, visit the main project website: https://alienproject.org
 
-Last document update: 15 Nov. 2025 
+Last document update: 27 Nov. 2025 

@@ -9,7 +9,7 @@ namespace AlienProject\PDFReport;
  * (for example the lines of an invoice)
  *
  * File :       PDFReportSection.php
- * @version  	1.0.4 - 15/11/2025
+ * @version  	1.0.5 - 27/11/2025
  */
 class PDFReportSection
 {
@@ -89,7 +89,7 @@ class PDFReportSection
             PDFLog::Write("ReportSection(" . $this->id . ")-NextRecord:recIndex=[" . $this->recIndex . "]");
 
             if ($this->page == null) {
-                if ($this->CurrentY() >= $this->y_end || $this->lineIndex >= $this->rows_count) {
+                if ($this->CurrentY() >= $this->y_end || $this->lineIndex > $this->rows_count) {
                     // Do page break
                     $this->lineIndex = 1;
                     $this->pageBreak = true;

@@ -7,7 +7,7 @@ namespace AlienProject\PDFReport;
  * - Enable LOG to file for live debugging
  * 
  * File :       PDFLog.php
- * @version  	1.0.4 - 15/11/2025
+ * @version  	1.0.5 - 27/11/2025
  */
 class PDFLog
 {
