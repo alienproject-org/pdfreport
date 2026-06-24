@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Class that defines the settings to be used in a graph if the value to be displayed falls within the specified range (minimum and maximum)
  * 
  * File :       PDFChartSegment.php
- * @version  	1.0.5 - 27/11/2025
+ * @version  	1.0.6 - 24/06/2026
  */
 class PDFChartSegment {
     

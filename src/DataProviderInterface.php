@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Generic data provider interface
  * 
  * File :       DataProviderInterface.php
- * @version  	1.0.5 - 27/11/2025
+ * @version  	1.0.6 - 24/06/2026
  */
 interface DataProviderInterface
 {

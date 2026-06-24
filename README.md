@@ -139,7 +139,12 @@ Create an XML file in the root folder with the following code:
 
 ## Version History
 
-**Last version: 1.0.5 - 27 Nov. 2025**
+**Last version: 1.0.6 - 26 Jiu. 2026**
+
+### Ver. 1.0.5 - 26 Jun. 2026
+- Bug fix for image tag not supporting dynamic image set via variable
+- Fixed automatic image processing (previously limited to PNG format only)
+- Minor fix and updates
 
 ### Ver. 1.0.5 - 27 Nov. 2025
 - Added new attribute "textfit" to box element. Possible values:
@@ -240,4 +245,4 @@ By accessing the reserved area, you can interactively run the example reports pr
 
 For more information and examples, visit the main project website: https://alienproject.org
 
-Last document update: 27 Nov. 2025 
+Last document update: 24 Jun. 2026 

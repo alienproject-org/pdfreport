@@ -9,7 +9,7 @@ namespace AlienProject\PDFReport;
  * (for example the lines of an invoice)
  *
  * File :       PDFReportSection.php
- * @version  	1.0.5 - 27/11/2025
+ * @version  	1.0.6 - 24/06/2026
  */
 class PDFReportSection
 {

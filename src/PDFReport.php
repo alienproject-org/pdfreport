@@ -18,9 +18,9 @@ namespace AlienProject\PDFReport;
  * 
  * File :       PDFReport.php
  * @package  	PDFReport - Library for generating PDF documents based on XML template
- * @version  	1.0.5 - 27/11/2025
+ * @version  	1.0.6 - 24/06/2026
  * @category    PHP Class Library
- * @copyright 	2025 - Alien Project
+ * @copyright 	2026 - Alien Project
  * @license 	https://alienproject.org/index/gnu_lgpl
  * @author   	MaxBR8 <contact@alienproject.org>
  * @access   	public
@@ -30,7 +30,7 @@ namespace AlienProject\PDFReport;
  */
 class PDFReport
 {
-	public string $version = '1.0.5 - 27/11/2025';
+	public string $version = '1.0.6 - 24/06/2026';
     public string $xmlTemplateFileName = '';            // Transformations : XML template file name -> XML template string -> Template array
     public string $xmlTemplate = '';                    // XML template string
     private $template = null;                           // Template (array format) extracted from the XML template string
@@ -1946,7 +1946,10 @@ class PDFReport
 		// public Image(string $file[, float|null $x = null ][, float|null $y = null ][, float $w = 0 ][, float $h = 0 ][, string $type = '' ][, mixed $link = '' ][, string $align = '' ][, mixed $resize = false ][, int $dpi = 300 ][, string $palign = '' ][, bool $ismask = false ][, mixed $imgmask = false ][, mixed $border = 0 ][, mixed $fitbox = false ][, bool $hidden = false ][, bool $fitonpage = false ][, bool $alt = false ][, array<string|int, mixed> $altimgs = array() ]) : mixed|false
 
         // Image file
-		$file = $this->LoadValue($element, 'file', '', true);
+		$file = $this->LoadValue($element, 'file', '', true, true);
+        if ($file == '') {
+            throw new \Exception('PDFReport.ProcessImage() : Image file name missing');
+        }
 
         // Image area
         $box = $this->processBoxSettings('ProcessImage', $element, $x_offset, $y_offset);
@@ -1966,7 +1969,7 @@ class PDFReport
             case 'jpg':
             case 'jpeg':    
             case 'bmp':
-                $this->pdf->Image($file, $x, $y, $width, $height, 'PNG', '', $align, true);
+                $this->pdf->Image($file, $x, $y, $width, $height, '', '', $align, true);
                 break;
             case 'svg':
                 $this->pdf->ImageSVG($file, $x, $y, $width, $height, '', $align, $palign, $border, true);

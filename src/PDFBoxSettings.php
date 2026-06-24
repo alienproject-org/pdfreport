@@ -14,7 +14,7 @@ enum TextFit : int
  * PDFBoxSettings class
  *
  * File :       PDFBoxSettings.php
- * @version  	1.0.5 - 27/11/2025
+ * @version  	1.0.6 - 24/06/2026
  */
 class PDFBoxSettings
 {
