@@ -18,7 +18,7 @@ namespace AlienProject\PDFReport;
  * 
  * File :       PDFReport.php
  * @package  	PDFReport - Library for generating PDF documents based on XML template
- * @version  	1.0.7 - 01/07/2026
+ * @version  	1.0.8 - 01/07/2026
  * @category    PHP Class Library
  * @copyright 	2026 - Alien Project
  * @license 	https://alienproject.org/index/gnu_lgpl
@@ -30,7 +30,7 @@ namespace AlienProject\PDFReport;
  */
 class PDFReport
 {
-	public string $version = '1.0.7 - 01/07/2026';
+	public string $version = '1.0.8 - 01/07/2026';
     public string $xmlTemplateFileName = '';            // Transformations : XML template file name -> XML template string -> Template array
     public string $xmlTemplate = '';                    // XML template string
     private $template = null;                           // Template (array format) extracted from the XML template string

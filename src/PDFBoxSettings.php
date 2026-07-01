@@ -2,19 +2,13 @@
 
 namespace AlienProject\PDFReport;
 
-enum TextFit : int
-{
-    case None = 0;
-    case Auto = 1;          // Truncate if possible, otherwise resize (default)
-    case Truncate = 2;
-    case Resize = 3;
-}
-
 /**
  * PDFBoxSettings class
  *
  * File :       PDFBoxSettings.php
- * @version  	1.0.7 - 01/07/2026
+ * @version  	1.0.8 - 01/07/2026
+ * 
+ * Require:     TextFit.php (TextFit enum)
  */
 class PDFBoxSettings
 {

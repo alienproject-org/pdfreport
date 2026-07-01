@@ -139,7 +139,10 @@ Create an XML file in the root folder with the following code:
 
 ## Version History
 
-**Last version: 1.0.7 - 01 Jul. 2026**
+**Last version: 1.0.8 - 01 Jul. 2026**
+
+### Ver. 1.0.8 - 01 Jul. 2026
+- Fixed a problem in the installer package related to the TextFit.php file (a missing enum that the autoloader was unable to load)
 
 ### Ver. 1.0.7 - 01 Jul. 2026
 - Added new attribute "printif" for conditional printing of the following elements:
