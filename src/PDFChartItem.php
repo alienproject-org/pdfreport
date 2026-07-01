@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Class that defines a single element (value) to be displayed in a graph
  * 
  * File :       PDFChartItem.php
- * @version  	1.0.6 - 24/06/2026
+ * @version  	1.0.7 - 01/07/2026
  */
 class PDFChartItem {
     

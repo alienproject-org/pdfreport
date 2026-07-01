@@ -18,7 +18,7 @@ namespace AlienProject\PDFReport;
  * 
  * File :       PDFReport.php
  * @package  	PDFReport - Library for generating PDF documents based on XML template
- * @version  	1.0.6 - 24/06/2026
+ * @version  	1.0.7 - 01/07/2026
  * @category    PHP Class Library
  * @copyright 	2026 - Alien Project
  * @license 	https://alienproject.org/index/gnu_lgpl
@@ -30,7 +30,7 @@ namespace AlienProject\PDFReport;
  */
 class PDFReport
 {
-	public string $version = '1.0.6 - 24/06/2026';
+	public string $version = '1.0.7 - 01/07/2026';
     public string $xmlTemplateFileName = '';            // Transformations : XML template file name -> XML template string -> Template array
     public string $xmlTemplate = '';                    // XML template string
     private $template = null;                           // Template (array format) extracted from the XML template string
@@ -822,15 +822,18 @@ class PDFReport
                     break;
                 case 'page':
                     // Add a new page to the document
-                    $this->ProcessPage($key, $element, true);
+                    if ($this->EvaluateCondition($this->LoadValue($element, 'printif', '')))
+                        $this->ProcessPage($key, $element, true);
                     break;
                 case 'line':
-                    $this->ProcessLine($key, $element, $x_offset, $y_offset);
+                    if ($this->EvaluateCondition($this->LoadValue($element, 'printif', '')))
+                        $this->ProcessLine($key, $element, $x_offset, $y_offset);
                     break;
                 case 'text':
                 case 'box':
                     // text (alias of box)
-                    $this->ProcessBox($key, $element, $x_offset, $y_offset);
+                    if ($this->EvaluateCondition($this->LoadValue($element, 'printif', '')))
+                        $this->ProcessBox($key, $element, $x_offset, $y_offset);
                     break;
                 case 'textfit':
                     // Current text fit into box
@@ -838,27 +841,34 @@ class PDFReport
                     break;
                 case 'rectangle':
                 case 'rect':
-                    $this->ProcessRectangle($key, $element, $x_offset, $y_offset);
+                    if ($this->EvaluateCondition($this->LoadValue($element, 'printif', '')))
+                        $this->ProcessRectangle($key, $element, $x_offset, $y_offset);
                     break;
                 case 'piechart':
-                    $this->ProcessPieChart($key, $element, $x_offset, $y_offset);
+                    if ($this->EvaluateCondition($this->LoadValue($element, 'printif', '')))
+                        $this->ProcessPieChart($key, $element, $x_offset, $y_offset);
                     break;
                 case 'singlebarchart':
-                    $this->ProcessSingleBarChart($key, $element, $x_offset, $y_offset);
+                    if ($this->EvaluateCondition($this->LoadValue($element, 'printif', '')))
+                        $this->ProcessSingleBarChart($key, $element, $x_offset, $y_offset);
                     break;
                 case 'barchart':
-                    $this->ProcessBarChart($key, $element, $x_offset, $y_offset);
+                    if ($this->EvaluateCondition($this->LoadValue($element, 'printif', '')))
+                        $this->ProcessBarChart($key, $element, $x_offset, $y_offset);
                     break;
                 case 'linechart':
-                    $this->ProcessLineChart($key, $element, $x_offset, $y_offset);
+                    if ($this->EvaluateCondition($this->LoadValue($element, 'printif', '')))
+                        $this->ProcessLineChart($key, $element, $x_offset, $y_offset);
                     break;
                 case 'gaugechart':
-                    $this->ProcessGaugeChart($key, $element, $x_offset, $y_offset);
+                    if ($this->EvaluateCondition($this->LoadValue($element, 'printif', '')))
+                        $this->ProcessGaugeChart($key, $element, $x_offset, $y_offset);
                     break;
                 case 'kpichart':
-                    $this->ProcessKpiChart($key, $element, $x_offset, $y_offset);
+                    if ($this->EvaluateCondition($this->LoadValue($element, 'printif', '')))
+                        $this->ProcessKpiChart($key, $element, $x_offset, $y_offset);
                     break;
-                case 'font':  
+                case 'font':
 					$this->font = $this->ProcessFont($key, $element);
 					$this->PdfSetFont($this->font);
                     break;
@@ -866,13 +876,16 @@ class PDFReport
                     $this->ProcessLineStyle($key, $element, true, true);
                     break;
                 case 'circle':
-                    $this->ProcessCircle($key, $element, $x_offset, $y_offset);
+                    if ($this->EvaluateCondition($this->LoadValue($element, 'printif', '')))
+                        $this->ProcessCircle($key, $element, $x_offset, $y_offset);
                     break;
                 case 'barcode':
-                    $this->ProcessBarcode($key, $element, $x_offset, $y_offset);
+                    if ($this->EvaluateCondition($this->LoadValue($element, 'printif', '')))
+                        $this->ProcessBarcode($key, $element, $x_offset, $y_offset);
                     break;
                 case 'image':
-                    $this->ProcessImage($key, $element, $x_offset, $y_offset);
+                    if ($this->EvaluateCondition($this->LoadValue($element, 'printif', '')))
+                        $this->ProcessImage($key, $element, $x_offset, $y_offset);
                     break;
                 case 'fill':
                 case 'fillstyle':    
@@ -2039,6 +2052,49 @@ class PDFReport
         $overwriteAsBool = in_array(strtolower($overwrite), $true_values);
 		$this->SetVar($name, $value, $overwriteAsBool);
 	}
+
+    // ***************************
+
+    /**
+     * Evaluates a conditional expression and returns true if the element should be rendered.
+     *
+     * Expression format: "{left}operator{right}" where operator is one of: = != > < >= <=
+     * Tags are resolved before evaluation. Numeric values use numeric comparison, otherwise string comparison.
+     * An empty expression always returns true (element rendered normally).
+     *
+     * @access private
+     * @param string $condition     Expression string, eg. "{fat_rig.tipo}=1" or "{val}!={COSTANTE}"
+     * @return bool                 true: render element, false: skip element
+     */
+    private function EvaluateCondition(string $condition): bool
+    {
+        if (trim($condition) === '') return true;
+        $expr = trim($this->ReplaceTags($condition));
+        if (preg_match('/^(.+?)(!=|>=|<=|=|>|<)(.+)$/', $expr, $m)) {
+            $left  = trim($m[1]);
+            $op    = $m[2];
+            $right = trim($m[3]);
+            if (is_numeric($left) && is_numeric($right)) {
+                $l = (float)$left;
+                $r = (float)$right;
+                return match($op) {
+                    '='  => $l == $r,  '!=' => $l != $r,
+                    '>'  => $l >  $r,  '<'  => $l <  $r,
+                    '>=' => $l >= $r,  '<=' => $l <= $r,
+                    default => true,
+                };
+            }
+            return match($op) {
+                '='  => $left === $right,  '!=' => $left !== $right,
+                '>'  => strcmp($left, $right) >  0,
+                '<'  => strcmp($left, $right) <  0,
+                '>=' => strcmp($left, $right) >= 0,
+                '<=' => strcmp($left, $right) <= 0,
+                default => true,
+            };
+        }
+        return $expr !== '' && $expr !== '0' && strtolower($expr) !== 'false';
+    }
 
     // ***************************
 

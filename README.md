@@ -139,7 +139,23 @@ Create an XML file in the root folder with the following code:
 
 ## Version History
 
-**Last version: 1.0.6 - 26 Jiu. 2026**
+**Last version: 1.0.7 - 01 Jul. 2026**
+
+### Ver. 1.0.7 - 01 Jul. 2026
+- Added new attribute "printif" for conditional printing of the following elements:
+  - line
+  - box / text
+  - rectangle / rect
+  - circle
+  - image
+  - barcode
+  - piechart
+  - singlebarchart
+  - barchart
+  - linechart
+  - gaugechart
+  - kpichart
+  - page
 
 ### Ver. 1.0.6 - 26 Jun. 2026
 - Bug fix for image tag not supporting dynamic image set via variable
@@ -245,4 +261,4 @@ By accessing the reserved area, you can interactively run the example reports pr
 
 For more information and examples, visit the main project website: https://alienproject.org
 
-Last document update: 24 Jun. 2026 
+Last document update: 01 Jul. 2026 
