@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * PDFBarcodeSettings class
  *
  * File :       PDFBarcodeSettings.php
- * @version  	1.0.8 - 01/07/2026
+ * @version  	1.0.9 - 13/07/2026
  */
 class PDFBarcodeSettings
 {
@@ -26,7 +26,8 @@ class PDFBarcodeSettings
     private array $color = [0, 0, 0];               // RGB array color [ R, G, B ], RGB : 0..255
     public string $rgbBackColor = 'FFFFFF';         // Background color RGB hex format
     private array $backColor = [255, 255, 255];     // Background RGB array color [ R, G, B ]
-    
+    public bool $border = true;                     // Show border around barcode
+
     function __construct($align = 'C', $type = 'C39', $value = '', $fontFamily = 'helvetica', $fontSize = 9.0, $rgbColor = '000000', $rgbBackColor = 'FFFFFF')
     {
         $this->Initialize($align, $type, $value, $fontFamily, $fontSize,$rgbColor, $rgbBackColor);
@@ -45,7 +46,7 @@ class PDFBarcodeSettings
         $this->backColor = $this->hexToRgbArray($rgbBackColor);
     }
 
-    public function GetStyle() 
+    public function GetStyle()
     {
         $this->color = $this->hexToRgbArray($this->rgbColor);
         $this->backColor = $this->hexToRgbArray($this->rgbBackColor);
@@ -55,7 +56,7 @@ class PDFBarcodeSettings
             'stretch' => false,
             'fitwidth' => false,
             'cellfitalign' => '',
-            'border' => true,
+            'border' => $this->border,
             'hpadding' => 'auto',
             'vpadding' => 'auto',
             'fgcolor' => $this->color,

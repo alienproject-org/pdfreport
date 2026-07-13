@@ -18,7 +18,7 @@ namespace AlienProject\PDFReport;
  * 
  * File :       PDFReport.php
  * @package  	PDFReport - Library for generating PDF documents based on XML template
- * @version  	1.0.8 - 01/07/2026
+ * @version  	1.0.9 - 13/07/2026
  * @category    PHP Class Library
  * @copyright 	2026 - Alien Project
  * @license 	https://alienproject.org/index/gnu_lgpl
@@ -30,7 +30,7 @@ namespace AlienProject\PDFReport;
  */
 class PDFReport
 {
-	public string $version = '1.0.8 - 01/07/2026';
+	public string $version = '1.0.9 - 13/07/2026';
     public string $xmlTemplateFileName = '';            // Transformations : XML template file name -> XML template string -> Template array
     public string $xmlTemplate = '';                    // XML template string
     private $template = null;                           // Template (array format) extracted from the XML template string
@@ -1928,7 +1928,7 @@ class PDFReport
 	{
         // Barcode area
         $box = $this->processBoxSettings('ProcessBarcode', $element, $x_offset, $y_offset);
-        
+
         $this->barcode->x = $box->x1;
 		$this->barcode->y = $box->y1;
 		$this->barcode->width = $box->width;
@@ -1937,9 +1937,10 @@ class PDFReport
         // Other barcode settings
 		$this->barcode->align = $this->LoadValue($element, 'align', $this->barcode->align);
 		$this->barcode->type = $this->LoadValue($element, 'type', $this->barcode->type);
+		$this->barcode->border = $this->LoadValue($element, 'border', $this->barcode->border);
 		$value = $this->LoadValue($element, 'value', $this->barcode->value, true, true);              // {id.xxx}
-		$this->barcode->value = $value; 
-		$this->pdf->write1DBarcode($this->barcode->value, $this->barcode->type, 
+		$this->barcode->value = $value;
+		$this->pdf->write1DBarcode($this->barcode->value, $this->barcode->type,
 								   $this->barcode->x, $this->barcode->y, $this->barcode->width, $this->barcode->height, $this->barcode->xres,
 								   $this->barcode->GetStyle());
 	}

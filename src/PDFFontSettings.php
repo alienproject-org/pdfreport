@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * PDFFontSettings class
  *
  * File :       PDFFontSettings.php
- * @version  	1.0.8 - 01/07/2026
+ * @version  	1.0.9 - 13/07/2026
  */
 class PDFFontSettings
 {

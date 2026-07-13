@@ -139,7 +139,10 @@ Create an XML file in the root folder with the following code:
 
 ## Version History
 
-**Last version: 1.0.8 - 01 Jul. 2026**
+**Last version: 1.0.9 - 13 Jul. 2026**
+
+### Ver. 1.0.9 - 13 Jul. 2026
+- Fixed a bug where the barcode element did not handle the border attribute (a black border was always displayed)
 
 ### Ver. 1.0.8 - 01 Jul. 2026
 - Fixed a problem in the installer package related to the TextFit.php file (a missing enum that the autoloader was unable to load)
@@ -264,4 +267,4 @@ By accessing the reserved area, you can interactively run the example reports pr
 
 For more information and examples, visit the main project website: https://alienproject.org
 
-Last document update: 01 Jul. 2026 
+Last document update: 13 Jul. 2026 

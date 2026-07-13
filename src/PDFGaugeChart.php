@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Gauge chart class
  * 
  * File :       PDFGaugeChart.php
- * @version  	1.0.8 - 01/07/2026
+ * @version  	1.0.9 - 13/07/2026
  */
 class PDFGaugeChart {
     
