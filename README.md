@@ -139,7 +139,10 @@ Create an XML file in the root folder with the following code:
 
 ## Version History
 
-**Last version: 1.0.9 - 13 Jul. 2026**
+**Last version: 1.0.10 - 13 Aug. 2026**
+
+### Ver. 1.0.10 - 13 Aug. 2026
+- Fixed "textfit" attribute (and "TextFit" default element) being ignored: every box always used the default "Auto" mode (the attribute had never taken effect since it was introduced in 1.0.5)
 
 ### Ver. 1.0.9 - 13 Jul. 2026
 - Fixed a bug where the barcode element did not handle the border attribute (a black border was always displayed)
@@ -267,4 +270,4 @@ By accessing the reserved area, you can interactively run the example reports pr
 
 For more information and examples, visit the main project website: https://alienproject.org
 
-Last document update: 13 Jul. 2026 
+Last document update: 13 Aug. 2026 

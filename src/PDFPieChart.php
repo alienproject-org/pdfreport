@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Classe per generare un grafico a torta
  * 
  * File :       PDFPieChart.php
- * @version  	1.0.9 - 13/07/2026
+ * @version  	1.0.10 - 13/08/2026
  */
 class PDFPieChart {
     /**

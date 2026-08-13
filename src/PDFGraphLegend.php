@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Legend chart class
  * 
  * File :       PDFGraphLegend.php
- * @version  	1.0.9 - 13/07/2026
+ * @version  	1.0.10 - 13/08/2026
  */
 class PDFGraphLegend 
 {    

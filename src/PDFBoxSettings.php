@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * PDFBoxSettings class
  *
  * File :       PDFBoxSettings.php
- * @version  	1.0.9 - 13/07/2026
+ * @version  	1.0.10 - 13/08/2026
  * 
  * Require:     TextFit.php (TextFit enum)
  */
@@ -30,6 +30,7 @@ class PDFBoxSettings
     {
         $this->x1 = $x1;
         $this->y1 = $y1;
+        $this->textFit = $textFit;
         if ($width == 0 && $height == 0) {
             // Use x2,y2 and calculate width,height
             if ($x2 < $x1) {
