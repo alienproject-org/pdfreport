@@ -18,7 +18,7 @@ namespace AlienProject\PDFReport;
  * 
  * File :       PDFReport.php
  * @package  	PDFReport - Library for generating PDF documents based on XML template
- * @version  	1.0.10 - 13/08/2026
+ * @version  	1.0.11 - 29/09/2026
  * @category    PHP Class Library
  * @copyright 	2026 - Alien Project
  * @license 	https://alienproject.org/index/gnu_lgpl
@@ -30,7 +30,7 @@ namespace AlienProject\PDFReport;
  */
 class PDFReport
 {
-	public string $version = '1.0.10 - 13/08/2026';
+	public string $version = '1.0.11 - 29/09/2026';
     public string $xmlTemplateFileName = '';            // Transformations : XML template file name -> XML template string -> Template array
     public string $xmlTemplate = '';                    // XML template string
     private $template = null;                           // Template (array format) extracted from the XML template string
@@ -50,13 +50,13 @@ class PDFReport
     private ?PDFFillSettings $fill = null;              // PDF current fill settings
     private float $opacity = 1.0;                       // Current opacity/transparent (alpha color component setting, range: 0.0 .. 1.0)
     private TextFit $textFit = TextFit::Auto;           // PDF current (default) text fit into box area
-    // Prevent infinite ricorsive calls
-    private int $loopCount = 0;
     // Other settings
     private $datalist = [];                             // Datalist (the placeholders used for the graphs will be replaced with the data from the datalist)
     // Custom callback
     private $formatCallback = null;
-    
+    // Output
+    private string $outputData = '';                    // Document returned by the output element when dest is "S" (PDF as string) or "E" (base64 email attachment)
+
 
     // ***************************
 
@@ -111,7 +111,7 @@ class PDFReport
         // Apply standard format using $fieldKey as a format mask
         $formatted = (string)$fieldValue;
         $firstChar = strtoupper($fieldKey[0] ?? '');
-        $decCount = $fieldKey[1] ?? null;
+        $decCount = $fieldKey[1] ?? '';
         $symbol = null;
         if (strlen($fieldKey) > 2) {
             $symbol = substr($fieldKey, 2);
@@ -579,7 +579,19 @@ class PDFReport
             // Error
             throw new \Exception('PDFReport.SetTemplate() : Missing XML template string');
         // Set template from XML template string
+        $previousUseErrors = libxml_use_internal_errors(true);          // Collect XML errors instead of raising PHP warnings
         $xmlObject = simplexml_load_string($this->xmlTemplate);
+        $xmlErrors = libxml_get_errors();
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousUseErrors);
+        if ($xmlObject === false) {
+            // Error : invalid XML (report the first parsing error)
+            $msg = 'PDFReport.SetTemplate() : Invalid XML template';
+            if (count($xmlErrors) > 0) {
+                $msg .= ' - line ' . $xmlErrors[0]->line . ', column ' . $xmlErrors[0]->column . ': ' . trim($xmlErrors[0]->message);
+            }
+            throw new \Exception($msg);
+        }
         //$json = json_decode(json_encode((array)$xmlObject), true);
         //$this->template = array($xmlObject->getName() => $json);
         $this->template = [$xmlObject->getName() => $this->xmlToCustomArray($xmlObject)];
@@ -625,13 +637,14 @@ class PDFReport
 
     /**
      * Creates (and automatically downloads, if required) the PDF report file
-     * 
+     *
      * @access public
-     * @return void                         No return
+     * @return string                       The document when the output destination is "S" (PDF as string) or "E" (base64 email attachment), empty string otherwise
      */
-    public function BuildReport()
+    public function BuildReport(): string
     {
         PDFLog::Write("BuildReport-Begin");
+        $this->outputData = '';
         if ($this->template == null) {
             // Error
             throw new \Exception('PDFReport.BuildReport() : Missing XML template. Use LoadTemplate or SetTemplate before to run this method.');
@@ -692,6 +705,7 @@ class PDFReport
             }
         }
         PDFLog::Write("BuildReport-End");
+        return $this->outputData;
     }
 
     // ***************************
@@ -710,13 +724,28 @@ class PDFReport
 
         $sec = $this->StartSection($section);
 
+        // Section with a data provider and no data rows : nothing to print (sections without data provider are printed once)
+        if ($sec->HasDataProvider() && $sec->row === null) {
+            $this->prevSec = null;
+            PDFLog::Write("ProcessSection-End:[" . $sec->id . "] no data, section skipped");
+            return;
+        }
+
         if ($this->prevSec != null && $this->prevSec->id == $sec->id) {
             $this->prevSec = null;
         }
 
+        $lastFetchCount = -1;
+        $stallCount = 0;
         do {
-            $this->loopCount++;
-            if ($this->loopCount > 500) throw new \Exception('PDFReport.ProcessSection() : Recursive loop safety system activated');
+            // Loop safety: every iteration must read at least one new record (in this section or in a nested section)
+            if (PDFReportSection::$fetchCount == $lastFetchCount) {
+                $stallCount++;
+                if ($stallCount > 10) throw new \Exception('PDFReport.ProcessSection() : Recursive loop safety system activated, no new data read in section [' . $sec->id . ']');
+            } else {
+                $stallCount = 0;
+                $lastFetchCount = PDFReportSection::$fetchCount;
+            }
 
             // Add new page (if required)
             $this->PdfAddPage($sec->page);
@@ -743,7 +772,7 @@ class PDFReport
                         $this->ProcessContent($element);
                         break;
                     case 'output':
-						$this->ProcessOutput($key, $template);
+						$this->ProcessOutput($key, $element);
                         break;
                     case 'section':
                         // Process all subsections contained in the current section
@@ -918,14 +947,14 @@ class PDFReport
      * @access private
      * @param string $key			        Element key
      * @param string $element			    Associative array element with output settings
-     * @return void                         No return
+     * @return void                         No return (the document returned by the "S" and "E" destinations is stored into outputData property)
      */
 	private function ProcessOutput($key, $element)
 	{
 		$fname = 'document_' . date('Ymd_His') . '.pdf';
 		$fname = $this->LoadValue($element, 'name|filename', $fname, true, true);
 		$dest = strtoupper($this->LoadValue($element, 'dest|destination', 'I'));
-		$this->pdf->Output($fname, $dest);
+		$this->outputData = (string)$this->pdf->Output($fname, $dest);
 	}
 	
     // ***************************
@@ -1176,6 +1205,10 @@ class PDFReport
 
 		// PieChart
 		$chart = new PDFPieChart($x1, $y1, $x2, $y2, $radius, $border, $style, $legendSettings, $dataItems);
+        $showTotal = strtolower(trim($this->LoadValue($element, 'showtotal', 'yes')));                         // on/1/yes/true = show (default), off/0/no/false = hide
+        $chart->showTotal = in_array($showTotal, ['on', '1', 'yes', 'y', 'true']);
+        $chart->totalLabel = (string)$this->LoadValue($element, 'totallabel', 'TOTAL', false, true);
+        $chart->valueFormat = $this->LoadValue($element, 'valueformat|format|valuemask|mask', '', false);
         $chart->render($this);
 	}
 
@@ -1208,12 +1241,12 @@ class PDFReport
         $border = $this->LoadValue($element, 'border', 0);
         $radius = $this->LoadValue($element, 'r|radius', 0);                    // r=0 : Auto calculate chart radius to fill container area
 		$style = strtoupper($this->LoadValue($element, 'style', 'DONUTS'));     // DONUTS = Ring style (default)
-        $title = $this->LoadValue($element, 'title', '');
+        $title = $this->LoadValue($element, 'title', '', false, true);
 
         // Chart data value
-        $value = $this->LoadValue($element, 'value', 0.0, true);                // Gauge value
-        $minValue = $this->LoadValue($element, 'minvalue', 0.0, true);          // Gauge min value
-        $maxValue = $this->LoadValue($element, 'maxvalue', 100.0, true);        // Gauge max value
+        $value = (float)$this->LoadValue($element, 'value', 0.0, true, true);                // Gauge value
+        $minValue = $this->LoadValue($element, 'minvalue', 0.0, false, true);         // Gauge min value (optional, default 0)
+        $maxValue = $this->LoadValue($element, 'maxvalue', 100.0, false, true);        // Gauge max value
 
         // Legend settings
         $legendSettings = new PDFLegendSettings(0, 0, 0, 0, 0, false);
@@ -1228,10 +1261,10 @@ class PDFReport
         if (is_array($segments_element) && count($segments_element) > 0)
         {
             foreach ($segments_element as $segment) {
-                $label = $this->LoadValue($segment, 'label', '', false);
+                $label = $this->LoadValue($segment, 'label', '', false, true);
                 $fillColor = $this->LoadValue($segment, 'fillcolor', $this->randomHexColor(), true);
-                $startValue = $this->LoadValue($segment, 'startvalue', 0.0, true);
-                $endValue = $this->LoadValue($segment, 'endvalue', 100.0, true);
+                $startValue = $this->LoadValue($segment, 'startvalue', 0.0, false, true);
+                $endValue = $this->LoadValue($segment, 'endvalue', 100.0, false, true);
                 $fill = new PDFFillSettings('S', $fillColor);
                 $font_segment = $this->LoadValue($segment, 'font', []);
                 $font = $this->ProcessFont('', $font_segment, $this->font);
@@ -1256,6 +1289,12 @@ class PDFReport
 
 		// Render chart
         $chart = new PDFGaugeChart($x1, $y1, $x2, $y2, $title, $titleFont, $radius, $border, $style, $minValue, $maxValue, $value, $segments);
+        $chart->valueFormat = $this->LoadValue($element, 'valueformat|format|valuemask|mask', '', false);
+        if ($legendSettings->isVisible) {
+            // The legend lists the chart segments (without values)
+            $legendSettings->isValueVisible = false;
+            $chart->legend = new PDFGraphLegend($legendSettings, $chart->getLegendItems());
+        }
         $chart->render($this);
 	}
 
@@ -1287,10 +1326,10 @@ class PDFReport
 
         $border = $this->LoadValue($element, 'border', 0);
         $radius = $this->LoadValue($element, 'r|radius', 0);
-		$title = $this->LoadValue($element, 'title', '');
+		$title = $this->LoadValue($element, 'title', '', false, true);
 
         // Chart data value
-        $value = $this->LoadValue($element, 'value', 0.0, true);    // Kpi value
+        $value = (float)$this->LoadValue($element, 'value', 0.0, true, true);    // Kpi value
         
         // Segments settings (optional)
         $segments = [];
@@ -1298,10 +1337,10 @@ class PDFReport
         if (is_array($segments_element) && count($segments_element) > 0)
         {
             foreach ($segments_element as $segment) {
-                $label = $this->LoadValue($segment, 'label', '', false);
+                $label = $this->LoadValue($segment, 'label', '', false, true);
                 $fillColor = $this->LoadValue($segment, 'fillcolor', $this->randomHexColor(), true);
-                $startValue = $this->LoadValue($segment, 'startvalue', 0.0, true);
-                $endValue = $this->LoadValue($segment, 'endvalue', 100.0, true);
+                $startValue = $this->LoadValue($segment, 'startvalue', 0.0, false, true);
+                $endValue = $this->LoadValue($segment, 'endvalue', 100.0, false, true);
                 $fill = new PDFFillSettings('S', $fillColor);
                 $font_segment = $this->LoadValue($segment, 'font', []);
                 $font = $this->ProcessFont('', $font_segment, $this->font);
@@ -1318,6 +1357,7 @@ class PDFReport
 
 		// Render chart
         $chart = new PDFKpiChart($x1, $y1, $x2, $y2, $title, $titleFont, $radius, $border, $value, $segments);
+        $chart->valueFormat = $this->LoadValue($element, 'valueformat|format|valuemask|mask', '', false);
         $chart->render($this);
 	}
 
@@ -1371,12 +1411,12 @@ class PDFReport
         $x2 = $box->x2;
         $y2 = $box->y2;
 
-        $minValue = $this->LoadValue($element, 'minvalue', 0);
-        $maxValue = $this->LoadValue($element, 'maxvalue', 0);      // 0 = Autoscale to total data items value
+        $minValue = $this->LoadValue($element, 'minvalue', 0, false, true);
+        $maxValue = $this->LoadValue($element, 'maxvalue', 0, false, true);      // 0 = Autoscale to total data items value
         //$border = $this->LoadValue($element, 'border', 0);
         $orientation = strtoupper($this->LoadValue($element, 'orientation', 'horizontal'));     // h / horiz / horizontal, v / vert / vertical
         $isVertical = str_starts_with(strtolower($orientation), 'v');
-        $title = $this->LoadValue($element, 'title', '');
+        $title = $this->LoadValue($element, 'title', '', false, true);
 
         // Legend settings
         $legendSettings = new PDFLegendSettings(0, 0, 0, 0, 0, false);
@@ -1443,12 +1483,12 @@ class PDFReport
         $x2 = $box->x2;
         $y2 = $box->y2;
 
-        $minValue = $this->LoadValue($element, 'minvalue', 0);
-        $maxValue = $this->LoadValue($element, 'maxvalue', 0);          // 0 = Autoscale based on max values of data items
+        $minValue = $this->LoadValue($element, 'minvalue', 0, false, true);
+        $maxValue = $this->LoadValue($element, 'maxvalue', 0, false, true);          // 0 = Autoscale based on max values of data items
         //$border = $this->LoadValue($element, 'border', 0);
         $orientation = strtoupper($this->LoadValue($element, 'orientation', 'horizontal'));     // h / horiz / horizontal, v / vert / vertical
         $isVertical = str_starts_with(strtolower($orientation), 'v');
-        $title = $this->LoadValue($element, 'title', '');
+        $title = $this->LoadValue($element, 'title', '', false, true);
         $barSize = $this->LoadValue($element, 'barsize', 0);                    // 0 = Auto calculate bar size
 		$barMargin = $this->LoadValue($element, 'barmargin', 1.0);              // 1.00 mm margin between bars
         $ticksCount = $this->LoadValue($element, 'tickscount', 5);              // Number of ticks on the axis with numeric values ​​(Y-axis if isVertical=true)
@@ -1565,10 +1605,10 @@ class PDFReport
         $x2 = $box->x2;
         $y2 = $box->y2;
 
-        $minValue = $this->LoadValue($element, 'minvalue', 0);
-        $maxValue = $this->LoadValue($element, 'maxvalue', 0);          // 0 = Autoscale based on max values of data items
+        $minValue = $this->LoadValue($element, 'minvalue', 0, false, true);
+        $maxValue = $this->LoadValue($element, 'maxvalue', 0, false, true);          // 0 = Autoscale based on max values of data items
         //$border = $this->LoadValue($element, 'border', 0);
-        $title = $this->LoadValue($element, 'title', '');
+        $title = $this->LoadValue($element, 'title', '', false, true);
         $ticksCount = $this->LoadValue($element, 'tickscount', 5);      // Number of ticks on the axis with numeric values ​​(Y-axis if isVertical=true)
         $style = $this->LoadValue($element, 'style', 'L');              // L-Line (default), A-Area
         $chartStyle =  (strtoupper(substr(trim($style), 0, 1)) == 'A') ? ChartStyleType::Area : ChartStyleType::Line;
@@ -1684,7 +1724,7 @@ class PDFReport
         $y2 = $box->y2;
 
         // Border radius and style
-        $r = $this->LoadValue($element, 'r|radius', 0, false) + $y_offset;
+        $r = (float)$this->LoadValue($element, 'r|radius', 0, false, true);      // Corner radius (not affected by position offset)
 		$border = $this->LoadValue($element, 'border', '1111');                // 1=show border, 0=no border  (4 values : left, top, right, bottom)
 		
         // Line style : width, color, dash, ...
@@ -1798,7 +1838,7 @@ class PDFReport
         $orientation = strtoupper($this->LoadValue($element, 'orientation', 'HORIZ'));      // H/HORIZ/HORIZONTAL, V/VERT/VERTICAL
         $isVertical = str_starts_with($orientation, 'V');
 		$radius = $this->LoadValue($element, 'r|radius', 0);                                // Border radius of the legend background
-        $visible = strtolower($this->LoadValue($element, 'visibile', 'true'));              // 1,true,yes,on = legend is visible / 0,false,no,off = legend is hidden
+        $visible = strtolower($this->LoadValue($element, 'visible|visibile', 'true'));      // 1,true,yes,on = legend is visible / 0,false,no,off = legend is hidden ("visibile" : old misspelled name, kept for compatibility)
         $isVisible = ($visible == '1' || $visible == 'true' || $visible == 'yes' || $visible == 'on');
         $opacity = $this->LoadValue($element, 'opacity', 1.0);                              // 0..1
         if ($opacity < 0.0) $opacity = 0.0;
@@ -1929,20 +1969,23 @@ class PDFReport
         // Barcode area
         $box = $this->processBoxSettings('ProcessBarcode', $element, $x_offset, $y_offset);
 
-        $this->barcode->x = $box->x1;
-		$this->barcode->y = $box->y1;
-		$this->barcode->width = $box->width;
-		$this->barcode->height = $box->height;
+        // Barcode settings: each barcode starts from the default settings (settings are not inherited from the previous barcode)
+        $barcode = clone $this->barcode;
+
+        $barcode->x = $box->x1;
+		$barcode->y = $box->y1;
+		$barcode->width = $box->width;
+		$barcode->height = $box->height;
 
         // Other barcode settings
-		$this->barcode->align = $this->LoadValue($element, 'align', $this->barcode->align);
-		$this->barcode->type = $this->LoadValue($element, 'type', $this->barcode->type);
-		$this->barcode->border = $this->LoadValue($element, 'border', $this->barcode->border);
-		$value = $this->LoadValue($element, 'value', $this->barcode->value, true, true);              // {id.xxx}
-		$this->barcode->value = $value;
-		$this->pdf->write1DBarcode($this->barcode->value, $this->barcode->type,
-								   $this->barcode->x, $this->barcode->y, $this->barcode->width, $this->barcode->height, $this->barcode->xres,
-								   $this->barcode->GetStyle());
+		$barcode->align = $this->LoadValue($element, 'align', $barcode->align);
+		$barcode->type = $this->LoadValue($element, 'type', $barcode->type);
+		$barcode->border = $this->LoadValue($element, 'border', $barcode->border);
+		$value = $this->LoadValue($element, 'value', $barcode->value, true, true);              // {id.xxx}
+		$barcode->value = $value;
+		$this->pdf->write1DBarcode($barcode->value, $barcode->type,
+								   $barcode->x, $barcode->y, $barcode->width, $barcode->height, $barcode->xres,
+								   $barcode->GetStyle());
 	}
 	
 	// ***************************
@@ -2024,7 +2067,7 @@ class PDFReport
         if ($applySettings) {
             if ($fillSettings->type == 'S') {
                 // Solid fill
-                $rgb = $this->fill->GetStartColor();
+                $rgb = $fillSettings->GetStartColor();
                 $this->pdf->setFillColor($rgb[0], $rgb[1], $rgb[2]);
             }
         }
@@ -2102,7 +2145,8 @@ class PDFReport
     private function PdfAddPage(?PDFPageSettings $page)
     {
         if (is_null($page)) return;
-        $this->pdf->AddPage($page->orientation, $page->format);
+        $format = ($page->format == 'C') ? [ $page->width, $page->height ] : $page->format;     // Custom page size or standard format
+        $this->pdf->AddPage($page->orientation, $format);
         $this->pageIndex++;
         $this->pageCount++;
     }
@@ -2435,6 +2479,10 @@ class PDFReport
 	 */
     private function LoadValue($template, $nodeKey, $default = '', $required = false, $doReplaceTags = false)
     {
+        if (!is_array($template) && is_scalar($template) && (string)$template !== '' && in_array('value', explode('|', $nodeKey))) {
+            // Element with a single value, eg. <opacity>0.5</opacity> or <opacity value="0.5" /> (both are converted to the string "0.5")
+            return $doReplaceTags ? $this->ReplaceTags($template) : $template;
+        }
         if (is_array($template)) {
             foreach ($template as $key => $element) {
                 $subKey = explode('.', $key)[0];

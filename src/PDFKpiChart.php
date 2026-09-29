@@ -6,12 +6,15 @@ namespace AlienProject\PDFReport;
  * KPI chart class
  * 
  * File :       PDFKpiChart.php
- * @version  	1.0.10 - 13/08/2026
+ * @version  	1.0.11 - 29/09/2026
  */
 class PDFKpiChart {
     
     // Some private properties are automatically generated and initialized by the constructor    
     private ?PDFChartSegment $segment;          // Current segment to use for rendering
+
+    // Public settings
+    public string $valueFormat = '';            // Value format mask (eg. "F2", "P0", "C2 €"), empty=1 decimal (default)
 
 
     /**
@@ -72,8 +75,9 @@ class PDFKpiChart {
         if ($pdf == null) return;
        
         // Draw the background rectangle for the KPI chart
-        $borderLine = new PDFLineSettings(0.75, $report->adjustBrightnessColor($this->segment->fill->rgbColor1, -10));
-        $report->PdfRectangle($this->x1, $this->y1, $this->x2, $this->y2, $this->radius, $this->border, $borderLine, $this->segment->fill);
+        // Border (optional) : a line slightly darker than the fill color. All corners are rounded when radius > 0
+        $borderLine = ($this->border) ? new PDFLineSettings(0.75, $report->adjustBrightnessColor($this->segment->fill->rgbColor1, -10)) : null;
+        $report->PdfRectangle($this->x1, $this->y1, $this->x2, $this->y2, $this->radius, '1111', $borderLine, $this->segment->fill);
         
         //$height = ($this->y2 - $this->y1) / 2;
 
@@ -81,10 +85,9 @@ class PDFKpiChart {
         $report->PdfBox($this->x1, $this->y1, $this->x2, $this->y2, $this->title, $this->titleFont, 'Center', 'Top', 0);
 
         // Draw value and symbol
-        $valueText = number_format($this->currentValue, 1) . $this->segment->symbol;
-        if (strlen($this->segment->label) > 0) {
-            $verticalPos = (strlen($this->segment->label) > 0) ? 'Middle' : 'Bottom';
-        }
+        $valueText = ($this->valueFormat != '') ? $report->FormatValue($this->valueFormat, $this->currentValue) : number_format($this->currentValue, 1);
+        $valueText .= $this->segment->symbol;
+        $verticalPos = (strlen($this->segment->label) > 0) ? 'Middle' : 'Bottom';     // With label: value in the middle, label at the bottom
         $report->PdfBox($this->x1, $this->y1, $this->x2, $this->y2, $valueText, $this->segment->font, 'Center', $verticalPos, 0);  
 
         // Draw the label (if any)

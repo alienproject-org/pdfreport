@@ -11,7 +11,7 @@ use PDOStatement;
  * Doctrine data provider class
  * 
  * File :       DataProviderDoctrine.php
- * @version     1.0.3 - 07/10/2025
+ * @version     1.0.11 - 29/09/2026
  * 
  * Usage example in a controller:
  * 

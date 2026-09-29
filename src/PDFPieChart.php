@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Classe per generare un grafico a torta
  * 
  * File :       PDFPieChart.php
- * @version  	1.0.10 - 13/08/2026
+ * @version  	1.0.11 - 29/09/2026
  */
 class PDFPieChart {
     /**
@@ -24,6 +24,10 @@ class PDFPieChart {
     // Legend settings
     private bool $legendIsVisible = false;
     public ?PDFGraphLegend $legend = null;
+    // Total label settings
+    public bool $showTotal = true;                  // Show the total value in the center of the chart
+    public string $totalLabel = 'TOTAL';            // Text printed before the total value (empty string = value only)
+    public string $valueFormat = '';                // Total value format mask (eg. "F2", "C2 €"), empty = value as it is
 
     /**
     * PieChart class constructor
@@ -117,10 +121,14 @@ class PDFPieChart {
                 $pdf->Circle($this->xc, $this->yc, $this->radius / 1.5, 0, 360, $pieSectorStyle);
                 break;
         }
-        // Total label
-        $x = $this->xc - $this->radius;
-        $y = $this->yc - $this->radius;
-        $pdf->MultiCell($this->radius * 2, $this->radius * 2, "TOTAL " . $this->total, 0, 'C', false, 1, $x, $y, false, 0, false, true, 0, 'M', true);
+        // Total label (optional)
+        if ($this->showTotal) {
+            $x = $this->xc - $this->radius;
+            $y = $this->yc - $this->radius;
+            $totalText = ($this->valueFormat != '') ? $report->FormatValue($this->valueFormat, $this->total) : (string)$this->total;
+            $totalText = trim($this->totalLabel . ' ' . $totalText);
+            $pdf->MultiCell($this->radius * 2, $this->radius * 2, $totalText, 0, 'C', false, 1, $x, $y, false, 0, false, true, 0, 'M', true);
+        }
         // Print legend
         if ($this->legend != null)
             $this->legend->render($report);

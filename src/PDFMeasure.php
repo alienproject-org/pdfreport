@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * PDFMeasure class
  *
  * File :       PDFMeasure.php
- * @version  	1.0.10 - 13/08/2026
+ * @version  	1.0.11 - 29/09/2026
  */
 class PDFMeasure
 {
@@ -18,6 +18,18 @@ class PDFMeasure
      */
     function __construct(public string $id, public string $label, public string $valueFormat, public PDFLineSettings $line, public PDFFillSettings $fill, public ?PDFSymbolSettings $symbol)
     {
+    }
+
+    /**
+     * Returns the fill settings that identify the measure color (used by area charts and legends).
+     * Uses the symbol fill (if defined), otherwise the measure fill.
+     */
+    public function GetColorFill(): PDFFillSettings
+    {
+        if ($this->symbol != null && $this->symbol->fill != null) {
+            return $this->symbol->fill;
+        }
+        return $this->fill;
     }
 
 }

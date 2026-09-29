@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Legend chart class
  * 
  * File :       PDFGraphLegend.php
- * @version  	1.0.10 - 13/08/2026
+ * @version  	1.0.11 - 29/09/2026
  */
 class PDFGraphLegend 
 {    
@@ -110,7 +110,7 @@ class PDFGraphLegend
             if (!empty($this->measures) && is_array($this->measures) && count($this->measures) > 0) {
                 foreach ($this->measures as $measure) {
                     // Draw legend box 
-                    $report->PdfRectangle($x, $y, $x + $this->settings->boxSize, $y + $this->settings->boxSize, 0, '0000', $this->settings->line, $measure->symbol->fill);
+                    $report->PdfRectangle($x, $y, $x + $this->settings->boxSize, $y + $this->settings->boxSize, 0, '0000', $this->settings->line, $measure->GetColorFill());
                     // Draw legend label
                     $x += $this->settings->boxSize + $this->settings->padding;
                     $label = $measure->label;
@@ -155,7 +155,7 @@ class PDFGraphLegend
                 foreach ($this->measures as $measure) {
                     $x = $this->settings->x1 + $this->settings->padding;
                     // Draw legend box 
-                    $report->PdfRectangle($x, $y, $x + $this->settings->boxSize, $y + $this->settings->boxSize, 0, '0000', $this->settings->line, $measure->symbol->fill);
+                    $report->PdfRectangle($x, $y, $x + $this->settings->boxSize, $y + $this->settings->boxSize, 0, '0000', $this->settings->line, $measure->GetColorFill());
                     // Draw legend label
                     $x += $this->settings->boxSize + $this->settings->padding;
                     $label = $measure->label;

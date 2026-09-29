@@ -12,7 +12,7 @@ enum ChartStyleType : int
  * Class that generates a line graph
  * 
  * File :       PDFLineChart.php
- * @version  	1.0.10 - 13/08/2026
+ * @version  	1.0.11 - 29/09/2026
  */
 class PDFLineChart {
     /**
@@ -141,7 +141,8 @@ class PDFLineChart {
             if (empty($lineItem1->getValue($i)) && empty($lineItem2->getValue($i))) continue;   // No line/point to draw
             // Draw line (or point)
             $report->PdfLine($x1, $y1, $x2, $y2, $measure->line);
-            // Point symbol
+            // Point symbol (optional, no symbol if the measure has no symbol style)
+            if ($measure->symbol == null) continue;
             switch ($measure->symbol->shape) {
                 case 'C':   // Circle
                     $report->PdfCircle($x1, $y1, $measure->symbol->size / 2.0, 0, 360, $measure->symbol->line, $measure->symbol->fill);
@@ -187,7 +188,7 @@ class PDFLineChart {
             }
         }
         $lineStyle = $measure->line->GetStyle();
-        $colArray = $measure->symbol->fill->GetStartColor();
+        $colArray = $measure->GetColorFill()->GetStartColor();
         $report->pdf->Polygon($coord, 'DF', [ 'all' => $lineStyle ], $colArray);
         $report->ResetOpacity();
     }

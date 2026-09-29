@@ -96,21 +96,21 @@ Create an XML file in the root folder with the following code:
 ```xml
 <pdf>
     <!-- *** Document info. *** -->
-    <info>
+    <doc_info>
         <creator>Alien Project</creator>
         <author>#MBR</author>
         <title>Hello World</title>
-    </info>
+    </doc_info>
     <section id="main">
-		<!-- Create a new page with the following settings when this section starts -->
+        <!-- Create a new page with the following settings when this section starts -->
         <page format="A5" orientation="L"/>
-		
-		<!-- Print content -->
+
+        <!-- Print content -->
         <print_content>hello</print_content>
-		
-		<!-- save to file -->
+
+        <!-- Send the PDF inline to the browser (use F to save it to a server file, S to get it as a string from BuildReport) -->
         <output>
-            <dest>F</dest>
+            <dest>I</dest>
             <name>page_sample_01.pdf</name>
             <isUTF8>true</isUTF8>
         </output>
@@ -122,8 +122,6 @@ Create an XML file in the root folder with the following code:
             <textvertalign>Center</textvertalign>
             <texthorizalign>Center</texthorizalign>
             <border>0</border>
-            <linewidth>0.25</linewidth>
-            <linecolor>000000</linecolor>
             <fill type="S" color="2874a6"/>
             <font>
                 <fontfamily>Helvetica</fontfamily>
@@ -139,7 +137,18 @@ Create an XML file in the root folder with the following code:
 
 ## Version History
 
-**Last version: 1.0.10 - 13 Aug. 2026**
+**Last version: 1.0.11 - 29 Sep. 2026**
+
+### Ver. 1.0.11 - 29 Sep. 2026
+- **Breaking change:** the `<output>` element is now honored (it was ignored and the PDF was always sent inline to the browser). Templates with `<dest>F</dest>` that expect to see the PDF in the browser must use `<dest>I</dest>` (or `<dest>FI</dest>`)
+- **Behavior change:** a section whose data query returns no rows is no longer printed
+- `BuildReport()` returns the PDF document when the destination is `S` (string) or `E` (base64 email attachment)
+- Fixed the limit of 500 data rows per report
+- Fixed elements and settings being ignored: `<opacity>`, `<textfit>`, custom page size in `<page>`, gauge chart legend
+- Fixed rectangle corner radius, barcode settings inherited by the following barcodes, default fill style color, KPI chart errors and border, line/area chart without `<symbolstyle>`, chart legend colors
+- Charts: placeholders supported in values, segments and titles; new `format` attribute for gauge and KPI charts; new `showtotal`, `totallabel` and `format` attributes for the pie chart total
+- An invalid XML template raises an exception with the line, column and reason of the error
+- Known issue: `{PAGECOUNT}` returns the current page number (workaround: calculate the number of pages in PHP and pass it with `SetVar()`)
 
 ### Ver. 1.0.10 - 13 Aug. 2026
 - Fixed "textfit" attribute (and "TextFit" default element) being ignored: every box always used the default "Auto" mode (the attribute had never taken effect since it was introduced in 1.0.5)
@@ -209,9 +218,9 @@ Create an XML file in the root folder with the following code:
   - Line/area chart
 
 ### Ver. 1.0.3 - 08 Oct. 2025
-- Updated/fix Updated/fix Doctrine data provider class (for Symfony framework)
-- Updated/fix Updated/fix Eloquent data provider class (for Laravel framework)
-- Set the TCPDF library is in the global namespace (fix for Symfony framework)
+- Updated/fix Doctrine data provider class (for Symfony framework)
+- Updated/fix Eloquent data provider class (for Laravel framework)
+- The TCPDF library is set in the global namespace (fix for Symfony framework)
 
 ### Ver. 1.0.2 - 04 Oct. 2025
 - Renamed all application classes to make them 100% compatible with the PSR-4 autoloader standard in Linux environment in addition to the Windows environment (already supported)
@@ -237,7 +246,7 @@ Create an XML file in the root folder with the following code:
   - Color opacity level
 - Graphic elements included:
   - Single bar chart 
-  - Pie/Donunt chart
+  - Pie/Donut chart
   - Gauge chart
   - KPI chart
   - Charts sub-components:
@@ -266,8 +275,8 @@ By accessing the reserved area, you can interactively run the example reports pr
 - **Google Authentication** (if you have a Google account)
 - **Classic registration** with email address (a confirmation email will be sent to the specified address with a link to confirm the subscription)
 
------
+---
 
 For more information and examples, visit the main project website: https://alienproject.org
 
-Last document update: 13 Aug. 2026 
+Last document update: 29 Sep. 2026

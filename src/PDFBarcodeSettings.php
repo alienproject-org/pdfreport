@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * PDFBarcodeSettings class
  *
  * File :       PDFBarcodeSettings.php
- * @version  	1.0.10 - 13/08/2026
+ * @version  	1.0.11 - 29/09/2026
  */
 class PDFBarcodeSettings
 {

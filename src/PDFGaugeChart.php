@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Gauge chart class
  * 
  * File :       PDFGaugeChart.php
- * @version  	1.0.10 - 13/08/2026
+ * @version  	1.0.11 - 29/09/2026
  */
 class PDFGaugeChart {
     
@@ -17,6 +17,10 @@ class PDFGaugeChart {
     private float $calculatedAngle;
     private float $percentage;
     private ?PDFChartSegment $segment;          // Current segment to use for rendering
+
+    // Public settings
+    public ?PDFGraphLegend $legend = null;      // null=no legend (the legend lists the chart segments)
+    public string $valueFormat = '';            // Value format mask (eg. "F2", "P0", "C2 €"), empty=1 decimal (default)
 
     // Semicircular gauge angles
     private const START_ANGLE = -90;            // Starting angle (left)
@@ -157,6 +161,27 @@ class PDFGaugeChart {
 
         // Draw gauge labels and indicators
         $this->drawGaugeLabels($pdf, $report);
+
+        // Print legend
+        if ($this->legend != null)
+            $this->legend->render($report);
+    }
+
+    /**
+     * Returns the chart segments as legend items (label: segment label or "start - end" range, color: segment fill)
+     *
+     * @return array    Array of PDFChartItem
+     */
+    public function getLegendItems(): array {
+        $items = [];
+        foreach ($this->segments as $segment) {
+            $label = $segment->label;
+            if (strlen($label) == 0) {
+                $label = $segment->startValue . ' - ' . $segment->endValue;
+            }
+            $items[] = new PDFChartItem($label, [ 0.0 ], 0.0, $segment->fill);
+        }
+        return $items;
     }
 
     /**
@@ -167,7 +192,8 @@ class PDFGaugeChart {
         $pdf->setTextColor(0, 0, 0);
         
         // Current value label (center of gauge)
-        $valueText = number_format($this->currentValue, 1) . $this->segment->symbol;
+        $valueText = ($this->valueFormat != '') ? $report->FormatValue($this->valueFormat, $this->currentValue) : number_format($this->currentValue, 1);
+        $valueText .= $this->segment->symbol;
         $percentageText = number_format($this->percentage * 100, 1) . ' %';
         
         // Position for center text

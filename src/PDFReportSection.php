@@ -9,7 +9,7 @@ namespace AlienProject\PDFReport;
  * (for example the lines of an invoice)
  *
  * File :       PDFReportSection.php
- * @version  	1.0.10 - 13/08/2026
+ * @version  	1.0.11 - 29/09/2026
  */
 class PDFReportSection
 {
@@ -30,6 +30,7 @@ class PDFReportSection
     private bool $pageBreak = false;
     private bool $endOfData = true;
     private int $pageIndex = 0; // Current page index
+    public static int $fetchCount = 0;                  // Total number of records read by all the sections (used to detect loops without progress)
 
     /**
      * @param string $id                            The section ID.
@@ -80,6 +81,7 @@ class PDFReportSection
         $this->pageBreak = false;
         $this->row = $this->dataProvider->fetchNext();
         if ($this->row !== null) {
+            self::$fetchCount++;
             if (($this->lineIndex == 0 && $this->recIndex == 0) || ($this->lineIndex == 1 && $this->recIndex > $this->lineIndex)) {
                 $this->pageIndex++;
             }
@@ -146,6 +148,11 @@ class PDFReportSection
     public function CurrentY(): float
     {
         return ($this->y_start + $this->OffsetY());
+    }
+
+    public function HasDataProvider(): bool
+    {
+        return ($this->dataProvider != null);
     }
 
     public function EndOfData(): bool
