@@ -9,7 +9,7 @@ namespace AlienProject\PDFReport;
  * (for example the lines of an invoice)
  *
  * File :       PDFReportSection.php
- * @version  	1.0.11 - 29/09/2026
+ * @version  	1.0.12 - 05/10/2026
  */
 class PDFReportSection
 {
@@ -22,6 +22,8 @@ class PDFReportSection
     public $row_height = 0.0;                           // Row height (mm)
     public $y_end = 296.0;                              // Y (mm) end position on the page (296 mm : A4 page format). If [(row_height * lineIndex) >= y_end] a page break is performed.
     public $rows_count = 1;
+    public $columns = 1;                                // Columns (version 1.0.12): the rows fill the columns from left to right, then the next line (eg. labels)
+    public $column_width = 0.0;                         // Column width (mm): each column is printed column_width to the right of the previous one
     public ?PDFPageSettings $page = null;               // Page settings
     
     private int $recIndex = 0;                          // Current record index in the results array [0..n-1]
@@ -91,7 +93,7 @@ class PDFReportSection
             PDFLog::Write("ReportSection(" . $this->id . ")-NextRecord:recIndex=[" . $this->recIndex . "]");
 
             if ($this->page == null) {
-                if ($this->CurrentY() >= $this->y_end || $this->lineIndex > $this->rows_count) {
+                if ($this->CurrentY() >= $this->y_end || $this->lineIndex > $this->rows_count * $this->ColumnCount()) {
                     // Do page break
                     $this->lineIndex = 1;
                     $this->pageBreak = true;
@@ -142,7 +144,19 @@ class PDFReportSection
     public function OffsetY(): float
     {
         $index = ($this->lineIndex > 0) ? $this->lineIndex - 1 : 0;
-        return ($index * $this->row_height);
+        return (intdiv($index, $this->ColumnCount()) * $this->row_height);
+    }
+
+    // X offset of the current row: with more columns, the rows are printed from left to right, then on the next line
+    public function OffsetX(): float
+    {
+        $index = ($this->lineIndex > 0) ? $this->lineIndex - 1 : 0;
+        return (($index % $this->ColumnCount()) * (float)$this->column_width);
+    }
+
+    public function ColumnCount(): int
+    {
+        return max(1, (int)$this->columns);
     }
 
     public function CurrentY(): float

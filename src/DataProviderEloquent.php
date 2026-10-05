@@ -11,7 +11,7 @@ use PDOStatement;
  * Eloquent data provider class
  * 
  * File :       DataProviderEloquent.php
- * @version     1.0.11 - 29/09/2026
+ * @version     1.0.12 - 05/10/2026
  * 
  * Usage example in a controller:
  * 

@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Class to generate a single bar chart
  * 
  * File :       PDFSingleBarChart.php
- * @version  	1.0.11 - 29/09/2026
+ * @version  	1.0.12 - 05/10/2026
  */
 class PDFSingleBarChart {
     /**
@@ -23,6 +23,10 @@ class PDFSingleBarChart {
     // Public settings
     public ?PDFGraphLegend $legend = null;          // null=no legend
     public ?PDFFontSettings $axisFont = null;       // Font settings for the axis labels
+    public ?PDFLineSettings $axisLine = null;       // Line settings of the axis (null = 0.2 mm black line)
+    public string $axisFormat = '';                 // Format mask of the axis labels (empty = default format, see PDFReport::FormatChartValue)
+    public bool $showAxis = true;                   // false = the axis (line, ticks and labels) is not printed
+    public int $ticksCount = 5;                     // Number of ticks (labels) of the axis
 
     /**
     * Single Bar Chart class constructor
@@ -63,6 +67,9 @@ class PDFSingleBarChart {
         if ($this->maxValue == 0.0) {
             // If maxValue is not set, use the total value (auto scale)
             $this->maxValue = $total;
+        }
+        if ($this->maxValue <= 0.0) {
+            $this->maxValue = 1.0;          // No data : empty bar
         }
 
         // Calculate the size of each chart element
@@ -114,19 +121,39 @@ class PDFSingleBarChart {
             $report->PdfRectangle($barItem->x1, $barItem->y1, $barItem->x2, $barItem->y2, 0, '0000', null, $barItem->fill);
         }
         
-        // Title
+        // Title (single line, above the bar; a vertical bar is narrow, the title box is centered on the bar and can be wider)
         if ($this->title != '') {
-            $cellHeightRatio = $pdf->getCellHeightRatio();
-            $singleLineHeight = $this->titleFont->size * $cellHeightRatio;
+            $singleLineHeight = $report->GetFontLineHeight($this->titleFont);
+            $x1 = $this->x1;
+            $x2 = $this->x2;
             if ($this->isVertical) {
-                // Vertical bar chart
-                
-            } else {
-                // Horizontal bar chart
-                $report->pdfBox($this->x1, $this->y1 - $singleLineHeight, $this->x2, $this->y1, $this->title, $this->titleFont, 'C', 'M', 0);
+                $report->PdfSetFont($this->titleFont);
+                $paddings = $pdf->getCellPaddings();
+                $titleWidth = $pdf->GetStringWidth($this->title) + $paddings['L'] + $paddings['R'] + 0.2;
+                $report->PdfSetDefaultFont();
+                if ($titleWidth > ($x2 - $x1)) {
+                    $xc = ($x1 + $x2) / 2.0;
+                    $x1 = $xc - ($titleWidth / 2.0);
+                    $x2 = $xc + ($titleWidth / 2.0);
+                }
             }
+            $report->pdfBox($x1, $this->y1 - PDFReport::CHART_TITLE_MARGIN - $singleLineHeight, $x2, $this->y1 - PDFReport::CHART_TITLE_MARGIN, $this->title, $this->titleFont, 'C', 'M', 0);
         }
 
+        if ($this->showAxis) {
+            $this->renderAxes($report);
+        }
+
+        // Print legend
+        if ($this->legend != null)
+            $this->legend->render($report);
+    }
+
+    /**
+     * Draws the axes with their ticks and labels
+     */
+    private function renderAxes(PDFReport $report) : void
+    {
         // Draw axis with labels
         if ($this->axisFont != null) {
             // Use custom axis font
@@ -135,7 +162,7 @@ class PDFSingleBarChart {
             // Use default axis font
             $axisFont = new PDFFontSettings('helvetica', '', 8, '000000');
         }
-        $axisLine = new PDFLineSettings(0.2, '000000');
+        $axisLine = ($this->axisLine != null) ? $this->axisLine : new PDFLineSettings(0.2, '000000');
 
         if ($this->isVertical) {
             // Axis for vertical bar chart (left side)
@@ -144,6 +171,8 @@ class PDFSingleBarChart {
             // Axis for horizontal bar chart (bottom side)
             $axisSettings = new PDFAxisSettings($this->x1, $this->y2, $this->x2, $this->y2 + 15.0, $this->minValue, $this->maxValue, '', $axisFont, true, false, $axisLine);    
         }
+        $axisSettings->ticksCount = max(2, $this->ticksCount);
+        $axisSettings->valueFormat = $this->axisFormat;
         $axis = new PDFGraphAxis($axisSettings);
         $axis->render($report);
 
@@ -161,10 +190,6 @@ class PDFSingleBarChart {
             $pdf->MultiCell($this->x2 - $this->x1, $this->y2 - $this->y1, "TOTAL " . $this->total, 0, 'C', false, 1, $x, $y, false, 0, false, true, 0, 'M', true);
         }
         */
-
-        // Print legend
-        if ($this->legend != null)
-            $this->legend->render($report);
     }
 
     /**

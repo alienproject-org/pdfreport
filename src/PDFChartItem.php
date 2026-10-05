@@ -6,12 +6,12 @@ namespace AlienProject\PDFReport;
  * Class that defines a single element (value) to be displayed in a graph
  * 
  * File :       PDFChartItem.php
- * @version  	1.0.11 - 29/09/2026
+ * @version  	1.0.12 - 05/10/2026
  */
 class PDFChartItem {
     
     public function __construct(public string $label = '', 
-								private array  $values = [ 0.0 ],       // values
+								private array  $values = [ 0.0 ],       // values (null = missing value, eg. an empty field)
 								public float $percentage = 0.0,         // value % (ref to a total value) 
 								public ?PDFFillSettings $fill = null, 
 								public float $x1 = 0.0, 
@@ -25,13 +25,20 @@ class PDFChartItem {
     }
 
     /**
-     * Gets the value based on the index. If no index is specified, it returns the value of the first element. If the index is invalid, it returns 0.
+     * Gets the value based on the index. If no index is specified, it returns the value of the first element. If the index is invalid or the value is missing, it returns 0.
      */
-    public function getValue(int $index = 0) {
-        if ($index >= 0 && $index < count($this->values)) {
+    public function getValue(int $index = 0) : float {
+        if ($index >= 0 && $index < count($this->values) && $this->values[$index] !== null) {
             return $this->values[$index];
         } 
         return 0.0;
+    }
+
+    /**
+     * Returns true if the value of the index exists (false for an invalid index or a missing value, eg. an empty field). The value 0 is a valid value.
+     */
+    public function hasValue(int $index = 0) : bool {
+        return ($index >= 0 && $index < count($this->values) && $this->values[$index] !== null);
     }
 }
 

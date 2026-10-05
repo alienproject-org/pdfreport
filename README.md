@@ -33,6 +33,12 @@ $report->BuildReport();
 
 ## Installation
 
+### Requirements
+
+- PHP 8.1 or later
+- Composer
+- PHP extensions: `dom` and `libxml` (XML templates and `DataProviderXML`), `mbstring` (recommended, used by TCPDF and `DataProviderCSV` for the encoding conversion), `mysqli` or `pdo` only for the database data providers
+
 Use "composer" to install the library. If Composer isn't installed in your development environment, this free tool can be [downloaded from the official website.](https://getcomposer.org/)
 
 ### Installing in a new project
@@ -137,7 +143,22 @@ Create an XML file in the root folder with the following code:
 
 ## Version History
 
-**Last version: 1.0.11 - 29 Sep. 2026**
+**Last version: 1.0.12 - 05 Oct. 2026**
+
+### Ver. 1.0.12 - 05 Oct. 2026
+- **Requirements:** PHP 8.1 or later (the library already used PHP 8.1 functions)
+- New data providers that read the data without a database: `DataProviderArray` (PHP array), `DataProviderCSV`, `DataProviderJSON` and `DataProviderXML` (files). The data files can be changed without touching the code; all of them support master / detail sections
+- 2D barcodes: `<barcode type="QRCODE,M">` (also `DATAMATRIX`, `PDF417`), new `color` and `backcolor` attributes
+- Sections with columns (`columns`, `column_width`): sheets of labels or badges with a single section
+- Charts: new `axisformat` (format mask of the axis labels; by default the labels use the number format variables) and `showaxis` attributes; auto scale rounded to a "round" step and shared by all the measures; single bar chart `axislinestyle`, `tickscount` and title with the vertical orientation; gauge `<axisfont>`; pie chart `<totalfont>`, total printed inside the ring; legend `boxsize`, `labelheight`, `titleheight`, `itemmargin`, `padding`, `showvalues` and `format` attributes
+- Charts: an empty value in a data element is a missing value (no point in the line chart); the value 0 is now drawn
+- Fixed the bar chart X axis labels drifting from the bars (`barmargin` without `barsize`) and the bars ignoring `minvalue`; fixed the chart titles printed too far from the chart
+- Fixed the line chart with the Composer autoloader: error *Class "ChartStyleType" not found* (the enum is now in its own file)
+- Fixed `textfit` Auto / Resize: a word wider than the box (eg. a single character in a very narrow box) was not printed; the font is now reduced
+- Fixed placeholders with value 0 printed as an empty string (and `printif` conditions on them)
+- Fixed `printif` conditions with an empty side, eg. `{row.flag}=1` when the field is empty (`{row.note}=` now tests an empty field)
+- Fixed `{PAGECOUNT}`: it is now the total number of pages of the document (eg. "Page {PAGEINDEX} of {PAGECOUNT}"). Templates that use it are built in two passes
+- Fixed a nested section inside a section without data provider: the rows that did not fit in the first page were lost; they now continue on the following pages, with the contents of the outer section printed again on each page
 
 ### Ver. 1.0.11 - 29 Sep. 2026
 - **Breaking change:** the `<output>` element is now honored (it was ignored and the PDF was always sent inline to the browser). Templates with `<dest>F</dest>` that expect to see the PDF in the browser must use `<dest>I</dest>` (or `<dest>FI</dest>`)
@@ -148,7 +169,7 @@ Create an XML file in the root folder with the following code:
 - Fixed rectangle corner radius, barcode settings inherited by the following barcodes, default fill style color, KPI chart errors and border, line/area chart without `<symbolstyle>`, chart legend colors
 - Charts: placeholders supported in values, segments and titles; new `format` attribute for gauge and KPI charts; new `showtotal`, `totallabel` and `format` attributes for the pie chart total
 - An invalid XML template raises an exception with the line, column and reason of the error
-- Known issue: `{PAGECOUNT}` returns the current page number (workaround: calculate the number of pages in PHP and pass it with `SetVar()`)
+- Known issue: `{PAGECOUNT}` returns the current page number (fixed in 1.0.12)
 
 ### Ver. 1.0.10 - 13 Aug. 2026
 - Fixed "textfit" attribute (and "TextFit" default element) being ignored: every box always used the default "Auto" mode (the attribute had never taken effect since it was introduced in 1.0.5)
@@ -279,4 +300,4 @@ By accessing the reserved area, you can interactively run the example reports pr
 
 For more information and examples, visit the main project website: https://alienproject.org
 
-Last document update: 29 Sep. 2026
+Last document update: 05 Oct. 2026

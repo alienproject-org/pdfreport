@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Class to generate a bar chart
  * 
  * File :       PDFBarChart.php
- * @version  	1.0.11 - 29/09/2026
+ * @version  	1.0.12 - 05/10/2026
  */
 class PDFBarChart {
     /**
@@ -26,6 +26,8 @@ class PDFBarChart {
     public ?PDFFontSettings $axisFont = null;       // Font settings for the axis labels
     public ?PDFLineSettings $axisLine = null;
     public bool $showValuesOnDataPoint = false;
+    public string $axisFormat = '';                 // Format mask of the numeric axis labels (empty = default format, see PDFReport::FormatChartValue)
+    public bool $showAxis = true;                   // false = the axes (lines, ticks and labels) are not printed
     // Private properties
     private bool $YAutoScale = true;
     private bool $AutoBarSize = true;
@@ -78,28 +80,13 @@ class PDFBarChart {
      * The index parameter is the numeric index of the series (0..N-1) to use. The bar chart currently uses only one data series, the first with index 0.
      */
     private function calculateBarSize(int $index): void {
-        // Calculate the max value
-        $max = 0.0;
-        foreach ($this->dataItems as $item) {
-            $itemValue = $item->getValue($index);
-            if ($itemValue > $max) {
-                $max = $itemValue;
-            }
-        }
-        if ($this->YAutoScale) {
-            // If auto scale is enabled, use the max value (auto scale)
-            if ($max > $this->maxValue) {
-                $this->maxValue = $max;
-            } 
-        }
 
         // Calculate the size of each chart element
         if ($this->isVertical) {
             // (1) Vertical bar chart (default/standard)
             // Calculate bar heights
             foreach ($this->dataItems as $item) {
-                $itemValue = $item->getValue($index);
-                $item->percentage = $itemValue / $this->maxValue;           // Calculates the percentage of the value compared to the full scale
+                $item->percentage = $this->getPercentage($item->getValue($index));  // Calculates the percentage of the value compared to the full scale
                 $height = ($this->y2 - $this->y1) * $item->percentage;      // Calculate the height of the bar
                 $item->y1 = $this->y2 - $height;                            // Calculate the starting point
                 if ($item->y1 < $this->y1) {
@@ -146,8 +133,7 @@ class PDFBarChart {
             // Calculate horizontal bar widths
             $x1 = $this->x1;
             foreach ($this->dataItems as $item) {
-                $itemValue = $item->getValue($index);
-                $item->percentage = $itemValue / $this->maxValue;           // Calculates the percentage of the value compared to the full scale
+                $item->percentage = $this->getPercentage($item->getValue($index));  // Calculates the percentage of the value compared to the full scale
                 $item->x1 = $this->x1;
                 $width = ($this->x2 - $this->x1) * $item->percentage;       // Calcola la larghezza della barra
                 $item->x2 = $this->x1 + $width;
@@ -192,12 +178,38 @@ class PDFBarChart {
         }
     }
     
-    public function render(?PDFReport $report = null) : void 
+    /**
+     * Auto scale (maxValue = 0) : the full scale is the max value of all the measures, rounded up to a "round" step between the ticks
+     */
+    private function calculateScale(): void {
+        if (!$this->YAutoScale) return;
+        $max = $this->minValue;
+        foreach ($this->measures as $index => $measure) {
+            foreach ($this->dataItems as $item) {
+                if ($item->hasValue($index) && $item->getValue($index) > $max) {
+                    $max = $item->getValue($index);
+                }
+            }
+        }
+        $this->maxValue = PDFAxisSettings::NiceMaxValue($this->minValue, $max, (int)$this->ticksCount);
+    }
+
+    /**
+     * Returns the position (0..1) of a value between the min and max value of the chart
+     */
+    private function getPercentage(float $value): float {
+        $range = $this->maxValue - $this->minValue;
+        if ($range <= 0) return 0.0;
+        return max(0.0, ($value - $this->minValue) / $range);
+    }
+
+    public function render(?PDFReport $report = null) : void
     {
         if ($report == null) return;
         $pdf = $report->pdf;
         if ($pdf == null) return;
-        
+
+        $this->calculateScale();
         if ($this->axisLine == null) {
             // If not set, Use default line settings for axis
             $this->axisLine = $report->GetDefaultLine();
@@ -229,14 +241,26 @@ class PDFBarChart {
             }
         }
         
-        // Title
+        // Title (single line, above the chart)
         if ($this->title != '') {
-            $cellHeightRatio = $pdf->getCellHeightRatio();
-            $singleLineHeight = $this->titleFont->size * $cellHeightRatio;
-            $report->pdfBox($this->x1, $this->y1 - $singleLineHeight, $this->x2, $this->y1, $this->title, $this->titleFont, 'C', 'M', 0);
+            $singleLineHeight = $report->GetFontLineHeight($this->titleFont);
+            $report->pdfBox($this->x1, $this->y1 - PDFReport::CHART_TITLE_MARGIN - $singleLineHeight, $this->x2, $this->y1 - PDFReport::CHART_TITLE_MARGIN, $this->title, $this->titleFont, 'C', 'M', 0);
         }
 
+        if ($this->showAxis) {
+            $this->renderAxes($report);
+        }
 
+        // Print legend
+        if ($this->legend != null)
+            $this->legend->render($report);
+    }
+
+    /**
+     * Draws the axes with their ticks and labels
+     */
+    private function renderAxes(PDFReport $report) : void
+    {
         // Draw X-Y axis
         if ($this->axisFont != null) {
             // Use custom axis font
@@ -251,7 +275,8 @@ class PDFBarChart {
             // Draw Y axis with labels (left side)
             $axisSettings = new PDFAxisSettings($this->x1 - 15.0, $this->y1, $this->x1, $this->y2, $this->minValue, $this->maxValue, '', $axisFont, true, true, $this->axisLine);
             $axisSettings->ticksCount = $this->ticksCount;
-            $axis = new PDFGraphAxis($axisSettings);            
+            $axisSettings->valueFormat = $this->axisFormat;
+            $axis = new PDFGraphAxis($axisSettings);
             $axis->render($report);
             // Draw X axis with labels (bottom side)
             $axisSettings = new PDFAxisSettings($this->x1, $this->y2, $this->x2, $this->y2 + 15.0, $this->minValue, $this->maxValue, '', $axisFont, true, false, $this->axisLine, $this->dataItems, $this->barSize, $this->barMargin);
@@ -267,13 +292,10 @@ class PDFBarChart {
             // Draw X axis with labels (bottom side)
             $axisSettings = new PDFAxisSettings($this->x1, $this->y2, $this->x2, $this->y2 + 15.0, $this->minValue, $this->maxValue, '', $axisFont, true, false, $this->axisLine);
             $axisSettings->ticksCount = $this->ticksCount;
+            $axisSettings->valueFormat = $this->axisFormat;
             $axis = new PDFGraphAxis($axisSettings);
             $axis->render($report);
         }
-
-        // Print legend
-        if ($this->legend != null)
-            $this->legend->render($report);
     }
 
     /**

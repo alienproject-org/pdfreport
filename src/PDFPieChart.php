@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Classe per generare un grafico a torta
  * 
  * File :       PDFPieChart.php
- * @version  	1.0.11 - 29/09/2026
+ * @version  	1.0.12 - 05/10/2026
  */
 class PDFPieChart {
     /**
@@ -26,8 +26,9 @@ class PDFPieChart {
     public ?PDFGraphLegend $legend = null;
     // Total label settings
     public bool $showTotal = true;                  // Show the total value in the center of the chart
-    public string $totalLabel = 'TOTAL';            // Text printed before the total value (empty string = value only)
+    public string $totalLabel = 'TOTAL';            // Text printed above the total value (empty string = value only)
     public string $valueFormat = '';                // Total value format mask (eg. "F2", "C2 €"), empty = value as it is
+    public ?PDFFontSettings $totalFont = null;      // Font of the total label (null = current font); the font is reduced if the text does not fit in the ring hole
 
     /**
     * PieChart class constructor
@@ -121,13 +122,16 @@ class PDFPieChart {
                 $pdf->Circle($this->xc, $this->yc, $this->radius / 1.5, 0, 360, $pieSectorStyle);
                 break;
         }
-        // Total label (optional)
+        // Total label (optional) : printed in the square inscribed in the ring hole (or in the pie), the font is reduced if the text does not fit
         if ($this->showTotal) {
-            $x = $this->xc - $this->radius;
-            $y = $this->yc - $this->radius;
+            $innerRadius = in_array(strtolower($this->style), [ 'ring', 'donuts' ]) ? $this->radius / 1.5 : $this->radius;
+            $halfSide = $innerRadius * M_SQRT1_2;
             $totalText = ($this->valueFormat != '') ? $report->FormatValue($this->valueFormat, $this->total) : (string)$this->total;
-            $totalText = trim($this->totalLabel . ' ' . $totalText);
-            $pdf->MultiCell($this->radius * 2, $this->radius * 2, $totalText, 0, 'C', false, 1, $x, $y, false, 0, false, true, 0, 'M', true);
+            $totalText = str_replace(' ', "\u{00A0}", trim($totalText));                // The value is not split on more lines (eg. "1.250 €")
+            if (trim($this->totalLabel) != '') {
+                $totalText = trim($this->totalLabel) . "\n" . $totalText;             // Label on the first line, value on the second line
+            }
+            $report->PdfBox($this->xc - $halfSide, $this->yc - $halfSide, $this->xc + $halfSide, $this->yc + $halfSide, $totalText, $this->totalFont, 'C', 'M', 0, null, null, 0.0, TextFit::Resize);
         }
         // Print legend
         if ($this->legend != null)

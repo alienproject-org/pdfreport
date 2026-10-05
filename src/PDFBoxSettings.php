@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * PDFBoxSettings class
  *
  * File :       PDFBoxSettings.php
- * @version  	1.0.11 - 29/09/2026
+ * @version  	1.0.12 - 05/10/2026
  * 
  * Require:     TextFit.php (TextFit enum)
  */

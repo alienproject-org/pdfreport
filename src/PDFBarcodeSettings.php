@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * PDFBarcodeSettings class
  *
  * File :       PDFBarcodeSettings.php
- * @version  	1.0.11 - 29/09/2026
+ * @version  	1.0.12 - 05/10/2026
  */
 class PDFBarcodeSettings
 {
@@ -19,6 +19,7 @@ class PDFBarcodeSettings
     public string $align = 'C';                     // Align : C-Center, L-Left, R-Right
     public string $type = 'C39';                    // Barcode type (eg. C39, C93, C128, EAN8, EAN13, CODE11, PHARMA, ..). 
 													// Full type list : https://tcpdf.org/docs/srcdoc/TCPDF/classes-TCPDFBarcode/
+													// 2D types (version 1.0.12) : QRCODE (or QRCODE,L / QRCODE,M / QRCODE,Q / QRCODE,H : error correction level), DATAMATRIX, PDF417
     public string $value = '';                      // Barcode value (number or string)
     public string $fontFamily = 'helvetica';        // Font family : helvetica, times, courier, symbol, zapfdingbats
     public float $fontSize = 9.0;
@@ -67,6 +68,26 @@ class PDFBarcodeSettings
             'stretchtext' => 1
         );
         return $style;
+    }
+
+    // true for the 2D barcode types (QR code, DataMatrix, PDF417)
+    public function Is2D(): bool
+    {
+        $type = strtoupper(trim($this->type));
+        return str_starts_with($type, 'QRCODE') || $type == 'DATAMATRIX' || str_starts_with($type, 'PDF417');
+    }
+
+    // Style of a 2D barcode (TCPDF write2DBarcode)
+    public function Get2DStyle()
+    {
+        return array(
+            'border' => $this->border,
+            'padding' => $this->border ? 'auto' : 0,
+            'fgcolor' => $this->hexToRgbArray($this->rgbColor),
+            'bgcolor' => $this->hexToRgbArray($this->rgbBackColor),
+            'module_width' => 1,
+            'module_height' => 1
+        );
     }
 
     private function hexToRgbArray(string $hexColor): array 

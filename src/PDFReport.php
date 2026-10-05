@@ -18,7 +18,7 @@ namespace AlienProject\PDFReport;
  * 
  * File :       PDFReport.php
  * @package  	PDFReport - Library for generating PDF documents based on XML template
- * @version  	1.0.11 - 29/09/2026
+ * @version  	1.0.12 - 05/10/2026
  * @category    PHP Class Library
  * @copyright 	2026 - Alien Project
  * @license 	https://alienproject.org/index/gnu_lgpl
@@ -30,7 +30,8 @@ namespace AlienProject\PDFReport;
  */
 class PDFReport
 {
-	public string $version = '1.0.11 - 29/09/2026';
+    public const CHART_TITLE_MARGIN = 1.5;              // Space (mm) between the built-in title of a chart and the chart area
+	public string $version = '1.0.12 - 05/10/2026';
     public string $xmlTemplateFileName = '';            // Transformations : XML template file name -> XML template string -> Template array
     public string $xmlTemplate = '';                    // XML template string
     private $template = null;                           // Template (array format) extracted from the XML template string
@@ -56,6 +57,8 @@ class PDFReport
     private $formatCallback = null;
     // Output
     private string $outputData = '';                    // Document returned by the output element when dest is "S" (PDF as string) or "E" (base64 email attachment)
+    private ?int $totalPages = null;                    // Total number of pages ({PAGECOUNT}), known after the first build pass
+    private bool $countingPass = false;                 // true : first build pass, only to count the pages (no output)
 
 
     // ***************************
@@ -167,6 +170,44 @@ class PDFReport
                 break;
         }
         return $formatted;
+    }
+
+    // ***************************
+
+    /**
+     * Formats a numeric value printed by a chart (axis labels, legend values, gauge min / max): with the format mask, if set 
+     * (eg. "F1", "I", "C0 $", "P0", or a key of the format callback), otherwise with the separators of the number format variables 
+     * (NUMERICDECIMALSEPARATOR, NUMERICTHOUSANDSEPARATOR) and only the decimals needed, max 2 (eg. 37.5 > "37,5", 2000 > "2.000").
+     * 
+     * @param string $format    Format mask (empty string = default format)
+     * @param mixed $value      Value to format
+     * @return string           Formatted value
+     */
+    public function FormatChartValue(string $format, $value): string
+    {
+        if ($format != '') {
+            return $this->FormatValue($format, $value);
+        }
+        $value = (float)$value;
+        if (abs($value) < 1e-9) {
+            $value = 0.0;           // Avoids "-0" (rounding errors of the axis steps)
+        }
+        $decimals = 0;
+        while ($decimals < 2 && abs(round($value, $decimals) - $value) > 1e-9) {
+            $decimals++;
+        }
+        return number_format($value, $decimals, (string)$this->GetVar('NUMERICDECIMALSEPARATOR', ','), (string)$this->GetVar('NUMERICTHOUSANDSEPARATOR', '.'));
+    }
+
+    /**
+     * Returns the height (user units, eg. mm) of a single line of text printed with the font, including the cell paddings
+     * 
+     * @param PDFFontSettings $font     Font settings
+     * @return float                    Line height
+     */
+    public function GetFontLineHeight(PDFFontSettings $font): float
+    {
+        return $this->pdf->getCellHeight($font->size / $this->pdf->getScaleFactor());
     }
 
     // ***************************
@@ -341,6 +382,8 @@ class PDFReport
         $sec->row_height = $this->LoadValue($section, 'row_height', $sec->row_height);      // Height of a single row. Each time a new data row is read, a new print row is added until the y_end OR rows_count condition is reached.
         $sec->y_end = $this->LoadValue($section, 'y_end', $sec->y_end);                     // Maximum section height. If the printed sequence of lines (rows) exceeds this, a page break is performed.
         $sec->rows_count = $this->LoadValue($section, 'rows_count', $sec->rows_count);      // Maximum lines (rows) per page counter. Alternative to y_end. When one of the two conditions is met, a page break is performed.
+        $sec->columns = $this->LoadValue($section, 'columns', $sec->columns);               // Columns (version 1.0.12): rows_count x columns data rows on each page, from left to right
+        $sec->column_width = $this->LoadValue($section, 'column_width', $sec->column_width); // Distance between the columns (mm)
         
         // Section page (optional, if set a new page is created each time a new section starts)
         $section_page_node = $this->LoadNode($section, 'page', []);      
@@ -403,7 +446,7 @@ class PDFReport
         $sRet = str_ireplace('{CURRENTDATE}', date('d/m/Y'), $sRet);
         $sRet = str_ireplace('{CURRENTTIME}', date('H:i:s'), $sRet);
         $sRet = str_ireplace('{PAGEINDEX}', $this->pageIndex, $sRet);
-        $sRet = str_ireplace('{PAGECOUNT}', $this->pageCount, $sRet);
+        $sRet = str_ireplace('{PAGECOUNT}', $this->totalPages ?? $this->pageCount, $sRet);     // Total pages (see BuildReport)
         // $sRet = str_ireplace('{ROOT}', base_path() . DIRECTORY_SEPARATOR, $sRet);
         // $sRet = str_ireplace('{CURRY}', $this->currY, $sRet);
         $sRet = str_ireplace('{RAND1}', random_int(1, 9), $sRet);
@@ -435,7 +478,7 @@ class PDFReport
 
             if ($rec != null) {
                 foreach ($rec as $key => $value) {
-                    if ($value == null || is_null($value))
+                    if ($value === null)
                         $value = '';
                     $sRet = str_ireplace('{' . $key . '}', $value, $sRet);
                 }
@@ -449,7 +492,7 @@ class PDFReport
             
             if ($rec == null) continue;
             foreach ($rec as $fieldkey => $fieldvalue) {
-                if ($fieldvalue == null || is_null($fieldvalue))
+                if ($fieldvalue === null)
                     $fieldvalue = '';
 				// Section data field
 				$sRet = str_ireplace('{' . $sectionkey . '.' . $fieldkey . '}', $fieldvalue, $sRet);
@@ -460,7 +503,7 @@ class PDFReport
             $rec = $datalist->row;
             if ($rec == null) continue;
             foreach ($rec as $fieldkey => $fieldvalue) {
-                if ($fieldvalue == null || is_null($fieldvalue))
+                if ($fieldvalue === null)
                     $fieldvalue = '';
 				// Datalist data field
 				$sRet = str_ireplace('{' . $datalistkey . '.' . $fieldkey . '}', $fieldvalue, $sRet);
@@ -643,6 +686,80 @@ class PDFReport
      */
     public function BuildReport(): string
     {
+        // {PAGECOUNT} : the total number of pages is known only at the end, so the report is built twice. The first pass
+        // only counts the pages (no output), the second one prints the document. Templates without {PAGECOUNT} are built once.
+        $this->totalPages = null;
+        if ($this->UsesPageCount()) {
+            PDFLog::Write("BuildReport-PageCount-Pass");
+            $state = $this->SaveBuildState();
+            $this->countingPass = true;
+            try {
+                $this->RunBuild();
+                $this->totalPages = $this->pdf->getNumPages();
+            } finally {
+                $this->countingPass = false;
+                $this->RestoreBuildState($state);
+            }
+        }
+        try {
+            return $this->RunBuild();
+        } finally {
+            $this->totalPages = null;
+        }
+    }
+
+    // ***************************
+
+    // true if the template or a variable contains {PAGECOUNT}
+    private function UsesPageCount(): bool
+    {
+        if (stripos($this->xmlTemplate, '{PAGECOUNT}') !== false) return true;
+        foreach ($this->varList as $value) {
+            if (is_string($value) && stripos($value, '{PAGECOUNT}') !== false) return true;
+        }
+        return false;
+    }
+
+    // Settings changed while the report is built: saved before the first pass and restored before the second one
+    private function SaveBuildState(): array
+    {
+        return [
+            'varList' => $this->varList,
+            'page' => clone $this->page,
+            'font' => clone $this->font,
+            'line' => clone $this->line,
+            'barcode' => clone $this->barcode,
+            'fill' => clone $this->fill,
+            'opacity' => $this->opacity,
+            'textFit' => $this->textFit,
+        ];
+    }
+
+    private function RestoreBuildState(array $state): void
+    {
+        $this->varList = $state['varList'];
+        $this->page = clone $state['page'];
+        $this->font = clone $state['font'];
+        $this->line = clone $state['line'];
+        $this->barcode = clone $state['barcode'];
+        $this->fill = clone $state['fill'];
+        $this->opacity = $state['opacity'];
+        $this->textFit = $state['textFit'];
+        $this->pageIndex = 0;
+        $this->pageCount = 0;
+        $this->prevSec = null;
+        $this->currentSectionId = '';
+        $this->outputData = '';
+        // The data providers are executed again in the second pass
+        foreach ($this->sections as $section) $section->Reset();
+        foreach ($this->datalist as $datalist) $datalist->Reset();
+    }
+
+    // ***************************
+
+    // Builds the report (one pass)
+    private function RunBuild(): string
+    {
         PDFLog::Write("BuildReport-Begin");
         $this->outputData = '';
         if ($this->template == null) {
@@ -737,6 +854,7 @@ class PDFReport
 
         $lastFetchCount = -1;
         $stallCount = 0;
+        $nestedPending = false;         // true : the nested section stopped at the end of the page and has more rows to print
         do {
             // Loop safety: every iteration must read at least one new record (in this section or in a nested section)
             if (PDFReportSection::$fetchCount == $lastFetchCount) {
@@ -747,8 +865,12 @@ class PDFReport
                 $lastFetchCount = PDFReportSection::$fetchCount;
             }
 
-            // Add new page (if required)
-            $this->PdfAddPage($sec->page);
+            // Add new page (if required). The rows of the nested section that did not fit in the page continue on a new page:
+            // with the page settings of this section, or with the default page settings if this section has no page element
+            if ($sec->page != null)
+                $this->PdfAddPage($sec->page);
+            elseif ($nestedPending)
+                $this->PdfAddPage($this->page);
             
             // Valid "section" element (it is an array with id attribute valued and section defined), process it 
             foreach ($section as $key => $element) {
@@ -764,6 +886,8 @@ class PDFReport
                     case 'row_height':
                     case 'y_end':
                     case 'rows_count':
+                    case 'columns':
+                    case 'column_width':
                     case 'page':
                         // Valid section attributes, do nothing at this level (they are handled in : ProcessSection > StartSection)
                         break;
@@ -797,10 +921,12 @@ class PDFReport
                         break;
                 }
             }
+            $nestedPending = ($this->prevSec != null && $this->prevSec->id != $sec->id && !$this->prevSec->EndOfData());
             if ($this->prevSec == null || ($this->prevSec->id != $sec->id && $this->prevSec != null && $this->prevSec->EndOfData())) {
                 $sec->NextRecord();  
             }
-        } while (!$sec->EndOfPage());
+            // A section without data provider is printed once, and again for each page of its nested section
+        } while (!$sec->EndOfPage() || (!$sec->HasDataProvider() && $nestedPending));
         
         if ($sec->EndOfData()) {
             $this->prevSec = null;
@@ -833,6 +959,7 @@ class PDFReport
         $y_offset = $this->LoadValue($print_content, 'y', 0);
         $sec = $this->GetCurrentSection();
         if ($sec != null) {
+            $x_offset += $sec->OffsetX();                           // Adds x-offset of the current column (section with more columns)
             $y_offset += $sec->OffsetY();                           // Adds y-offset (optional) of the current section being processed
         }
         $content = $this->contents[$id_content];
@@ -951,6 +1078,7 @@ class PDFReport
      */
 	private function ProcessOutput($key, $element)
 	{
+		if ($this->countingPass) return;                     // First pass of BuildReport: only counts the pages
 		$fname = 'document_' . date('Ymd_His') . '.pdf';
 		$fname = $this->LoadValue($element, 'name|filename', $fname, true, true);
 		$dest = strtoupper($this->LoadValue($element, 'dest|destination', 'I'));
@@ -1209,6 +1337,14 @@ class PDFReport
         $chart->showTotal = in_array($showTotal, ['on', '1', 'yes', 'y', 'true']);
         $chart->totalLabel = (string)$this->LoadValue($element, 'totallabel', 'TOTAL', false, true);
         $chart->valueFormat = $this->LoadValue($element, 'valueformat|format|valuemask|mask', '', false);
+        $font_element = $this->LoadValue($element, 'totalfont', []);
+        if (count($font_element) > 0) {
+            $chart->totalFont = $this->ProcessFont('', $font_element);      // Font of the total label
+        }
+        if ($chart->legend != null && $legendSettings->valueFormat == '') {
+            // Legend values : same format of the total
+            $legendSettings->valueFormat = $chart->valueFormat;
+        }
         $chart->render($this);
 	}
 
@@ -1290,6 +1426,7 @@ class PDFReport
 		// Render chart
         $chart = new PDFGaugeChart($x1, $y1, $x2, $y2, $title, $titleFont, $radius, $border, $style, $minValue, $maxValue, $value, $segments);
         $chart->valueFormat = $this->LoadValue($element, 'valueformat|format|valuemask|mask', '', false);
+        $this->LoadAxisSettings($element, $chart);
         if ($legendSettings->isVisible) {
             // The legend lists the chart segments (without values)
             $legendSettings->isValueVisible = false;
@@ -1437,6 +1574,12 @@ class PDFReport
 		// SingleBarChart
 		$chart = new PDFSingleBarChart($x1, $y1, $x2, $y2, $isVertical, $minValue, $maxValue, $title, $font, $legendSettings, $dataItems);
         $chart->axisFont = $axisFont;
+        $linestyle_element = $this->LoadValue($element, 'axislinestyle', []);
+        if (count($linestyle_element) > 0) {
+            $chart->axisLine = $this->ProcessLineStyle('', $linestyle_element, false, false);
+		}
+        $chart->ticksCount = (int)$this->LoadValue($element, 'tickscount', 5);
+        $this->LoadAxisSettings($element, $chart);
         $chart->render($this);
 	}
 
@@ -1517,6 +1660,7 @@ class PDFReport
         $chart->axisFont = $axisFont;
         $chart->axisLine = $axisLine;
         $chart->showValuesOnDataPoint = $showValuesOnDataPoint;
+        $this->LoadAxisSettings($element, $chart);
         $chart->render($this);
 	}
 
@@ -1638,6 +1782,7 @@ class PDFReport
         $chart->axisLine = $axisLine;
         $chart->style = $chartStyle;
         $chart->opacity = $opacity;
+        $this->LoadAxisSettings($element, $chart);
         $chart->render($this);
 	}
 
@@ -1657,9 +1802,7 @@ class PDFReport
             if (is_array($dataList) && count($dataList) > 0) {
                 foreach ($dataList as $data) {
                     if (is_array($data)) {
-                        $values = $this->LoadValue($data, 'value', '0', true);
-                        $str_values = explode(' ', $values);
-                        $float_values = array_map('floatval', $str_values);
+                        $float_values = $this->ParseChartValues($this->LoadValue($data, 'value', ''));     // <data label=".."/> without value : missing value
                         $color = $this->LoadValue($data, 'color', $this->randomHexColor(), true);
                         $item = new PDFChartItem($this->LoadValue($data, 'label', '', true),
                                                     $float_values, 
@@ -1682,9 +1825,7 @@ class PDFReport
                     while (!$dtlist->EndOfData()) {
 
                         $label = $this->LoadValue($data, 'label', '', true, true);      // label, value, color : replace placeholders {id.xxx} with data
-                        $values = $this->LoadValue($data, 'value', '0', true, true);
-                        $str_values = explode(' ', $values);
-                        $float_values = array_map('floatval', $str_values);
+                        $float_values = $this->ParseChartValues($this->LoadValue($data, 'value', '0', true, true));
                         $color = $this->LoadValue($data, 'color', $this->randomHexColor(), true, true);
 
                         $item = new PDFChartItem($label,
@@ -1702,6 +1843,42 @@ class PDFReport
             throw new \Exception('PDFReport.LoadDataItems() : No data set found. Missing datalist or valid data tag.');
         }
         return $dataItems;
+    }
+
+    // ***************************
+
+    /**
+     * Loads the axis settings shared by the charts : axisformat (format mask of the numeric labels),
+     * showaxis (on/off) and, for the gauge chart, the axisfont element (font of the min / max labels)
+     */
+    private function LoadAxisSettings($element, $chart) : void
+    {
+        $chart->axisFormat = (string)$this->LoadValue($element, 'axisformat', '', false);
+        $showAxis = strtolower(trim((string)$this->LoadValue($element, 'showaxis', 'yes')));
+        $chart->showAxis = in_array($showAxis, ['on', '1', 'yes', 'y', 'true']);
+        if ($chart instanceof PDFGaugeChart) {
+            $font_element = $this->LoadValue($element, 'axisfont', []);
+            if (count($font_element) > 0) {
+                $chart->axisFont = $this->ProcessFont('', $font_element);
+            }
+        }
+    }
+
+    // ***************************
+
+    /**
+     * Converts the values of a chart data element (one value for each measure, separated by a space) to an array of float.
+     * An empty value (eg. an empty field: "{d.a} {d.b}" with d.b empty), "null", "-" or "n/a" is a missing value (null): 
+     * the line chart does not draw its point. The value 0 is a valid value.
+     */
+    private function ParseChartValues($values) : array
+    {
+        $result = [];
+        foreach (explode(' ', (string)$values) as $value) {
+            $value = trim($value);
+            $result[] = in_array(strtolower($value), [ '', 'null', '-', 'n/a' ], true) ? null : floatval($value);
+        }
+        return $result;
     }
 
     // ***************************
@@ -1868,9 +2045,18 @@ class PDFReport
             $fill = $this->ProcessFill('', $fill_element, false, false);
 		}
 
-        // TODO: Process new additional properties here...
-
         $settings = new PDFLegendSettings($x1, $y1, $x2, $y2, $radius, $isVisible, $opacity, $title, $font, $isVertical, $line, $fill);
+
+        // Sizes of the legend elements (optional, mm)
+        $settings->padding = (float)$this->LoadValue($element, 'padding', $settings->padding, false, true);
+        $settings->marginBetweenItems = (float)$this->LoadValue($element, 'itemmargin', $settings->marginBetweenItems, false, true);
+        $settings->boxSize = (float)$this->LoadValue($element, 'boxsize', $settings->boxSize, false, true);
+        $settings->titleHeight = (float)$this->LoadValue($element, 'titleheight', $settings->titleHeight, false, true);
+        $settings->itemLabelHeight = (float)$this->LoadValue($element, 'labelheight|itemheight', $settings->itemLabelHeight, false, true);
+        // Values after the labels (pie and single bar charts) : showvalues on/off and format mask
+        $showValues = strtolower(trim((string)$this->LoadValue($element, 'showvalues', 'yes')));
+        $settings->isValueVisible = in_array($showValues, ['on', '1', 'yes', 'y', 'true']);
+        $settings->valueFormat = (string)$this->LoadValue($element, 'valueformat|format', '', false);
         return $settings;
 	}
 
@@ -1981,11 +2167,52 @@ class PDFReport
 		$barcode->align = $this->LoadValue($element, 'align', $barcode->align);
 		$barcode->type = $this->LoadValue($element, 'type', $barcode->type);
 		$barcode->border = $this->LoadValue($element, 'border', $barcode->border);
+		$barcode->rgbColor = ltrim($this->LoadValue($element, 'color|fgcolor', $barcode->rgbColor, false, true), '#');           // Bars / modules color (version 1.0.12)
+		$barcode->rgbBackColor = ltrim($this->LoadValue($element, 'backcolor|bgcolor', $barcode->rgbBackColor, false, true), '#');  // Background color (version 1.0.12)
 		$value = $this->LoadValue($element, 'value', $barcode->value, true, true);              // {id.xxx}
 		$barcode->value = $value;
+		if ($barcode->Is2D()) {
+			// 2D barcode (QR code, DataMatrix, PDF417): square modules, the barcode keeps its proportions and is aligned in the print area
+			$this->Print2DBarcode($barcode);
+			return;
+		}
 		$this->pdf->write1DBarcode($barcode->value, $barcode->type,
 								   $barcode->x, $barcode->y, $barcode->width, $barcode->height, $barcode->xres,
 								   $barcode->GetStyle());
+	}
+
+	// ***************************
+
+	/**
+	 * Print a 2D barcode (QRCODE, QRCODE,L / M / Q / H, DATAMATRIX, PDF417) into the barcode print area
+	 *
+	 * @access private
+	 * @param PDFBarcodeSettings $barcode   Barcode settings (print area, type, value, colors)
+	 * @return void                         No return
+	 */
+	private function Print2DBarcode(PDFBarcodeSettings $barcode) : void
+	{
+		if ((string)$barcode->value === '') return;
+		$width = $barcode->width;
+		$height = $barcode->height;
+		$x = $barcode->x;
+		$y = $barcode->y;
+		$type = strtoupper($barcode->type);
+		if (str_starts_with($type, 'QRCODE') || $type == 'DATAMATRIX') {
+			// Square barcode: the largest square in the print area, aligned horizontally (L, C, R) and centered vertically
+			$size = min($width, $height);
+			$align = strtoupper($barcode->align);
+			if ($align == 'C') $x += ($width - $size) / 2;
+			elseif ($align == 'R') $x += ($width - $size);
+			$y += ($height - $size) / 2;
+			$width = $size;
+			$height = $size;
+		}
+		// TCPDF reduces a 2D barcode that goes over the right page margin: the position is set by the template, so the margin is ignored
+		$margins = $this->pdf->getMargins();
+		$this->pdf->setRightMargin(0);
+		$this->pdf->write2DBarcode((string)$barcode->value, $barcode->type, $x, $y, $width, $height, $barcode->Get2DStyle(), 'N', false);
+		$this->pdf->setRightMargin($margins['right']);
 	}
 	
 	// ***************************
@@ -2114,7 +2341,8 @@ class PDFReport
     {
         if (trim($condition) === '') return true;
         $expr = trim($this->ReplaceTags($condition));
-        if (preg_match('/^(.+?)(!=|>=|<=|=|>|<)(.+)$/', $expr, $m)) {
+        // A side can be empty (version 1.0.12): {row.note}= is true when the field is empty, {row.flag}=1 is false when the flag is empty
+        if (preg_match('/^(.*?)(!=|>=|<=|=|>|<)(.*)$/s', $expr, $m)) {
             $left  = trim($m[1]);
             $op    = $m[2];
             $right = trim($m[3]);
@@ -2237,6 +2465,22 @@ class PDFReport
             // Resize : Scales down font if text is too large
             $fitToCell = true;
         }
+        $fontSizePt = $this->pdf->getFontSizePt();
+        if ($fitToCell && $text !== '') {
+            // TCPDF does not print a word wider than the box (eg. a single character in a very narrow box) and its fitcell option
+            // only reduces the font to fit the height: the font is reduced so that the widest word fits the width of the box
+            // (words separated by spaces; a non-breaking space joins two words)
+            $paddings = $this->pdf->getCellPaddings();
+            $availableWidth = $width - $paddings['L'] - $paddings['R'];
+            $wordWidth = 0.0;
+            foreach (preg_split('/[ \t\r\n]+/', $text, -1, PREG_SPLIT_NO_EMPTY) as $word) {
+                $wordWidth = max($wordWidth, $this->pdf->GetStringWidth($word));
+            }
+            if ($availableWidth > 0 && $wordWidth > $availableWidth) {
+                $this->pdf->setFontSize($fontSizePt * ($availableWidth / $wordWidth) * 0.98);
+                $this->pdf->resetLastH();       // Line height of the reduced font (used by the vertical alignment)
+            }
+        }
 
 		$horizalign = $this->NormalizeHorizontalTextAlignment($horizalign);		// Horizontal text alignment
 		$vertalign = $this->NormalizeVerticalTextAlignment($vertalign);			// Vertical text aligment
@@ -2313,7 +2557,10 @@ class PDFReport
 		if ($fontUpdated) {
 			// Restore current font settings
 			$this->PdfSetFont($this->font);
-		}
+		} else if ($this->pdf->getFontSizePt() != $fontSizePt) {
+            // Restore the font size reduced to fit the text
+            $this->pdf->setFontSize($fontSizePt);
+        }
     }
 
     // ***************************

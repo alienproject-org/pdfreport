@@ -6,17 +6,18 @@ namespace AlienProject\PDFReport;
  * Class for managing the configuration of a chart legend
  * 
  * File :       PDFLegendSettings.php
- * @version  	1.0.11 - 29/09/2026
+ * @version  	1.0.12 - 05/10/2026
  */
 class PDFLegendSettings 
 {    
-    // Padding e margini
+    // Padding and margins (attributes of the <legend> element : padding, itemmargin, boxsize, titleheight, labelheight)
     public float $padding = 2;                       // padding size : mm
-    public float $marginBetweenItems = 1;
-    public float $boxSize = 5;
+    public float $marginBetweenItems = 1;            // vertical space between the items (vertical legend)
+    public float $boxSize = 5;                       // size of the color box (swatch) of each item
     public float $titleHeight = 6;
-    public float $itemLabelHeight = 6;
-    public bool $isValueVisible = true;
+    public float $itemLabelHeight = 6;               // height of each item row (the color box is vertically centered)
+    public bool $isValueVisible = true;              // pie / single bar charts : print the value after the label (showvalues)
+    public string $valueFormat = '';                 // format mask of the values (empty = default format, see PDFReport::FormatChartValue)
     
     /**
      * Costruttore della classe

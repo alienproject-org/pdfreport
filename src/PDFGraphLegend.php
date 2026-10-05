@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Legend chart class
  * 
  * File :       PDFGraphLegend.php
- * @version  	1.0.11 - 29/09/2026
+ * @version  	1.0.12 - 05/10/2026
  */
 class PDFGraphLegend 
 {    
@@ -92,15 +92,10 @@ class PDFGraphLegend
         if (!empty($this->items) && is_array($this->items) && count($this->items) > 0) {
             foreach ($this->items as $item) {
                 // Draw item box 
-                $report->PdfRectangle($x, $y, $x + $this->settings->boxSize, $y + $this->settings->boxSize, 0, '0000', $this->settings->line, $item->fill);
+                $this->drawItemBox($report, $x, $y, $item->fill);
                 // Draw item label
                 $x += $this->settings->boxSize + $this->settings->padding;
-                $label = $item->label;
-                if ($this->settings->isValueVisible) {
-                    // Draw item value
-                    $itemValue = $item->getValue(0);
-                    $label .= ' (' . $itemValue .')';
-                }
+                $label = $this->getItemLabel($report, $item);
                 $report->PdfBox($x, $y, $x + $width, $y + $this->settings->itemLabelHeight, $label, $this->settings->font, 'L', 'M', 0);
                 // Prepare to process next item
                 $x += $width + $this->settings->padding;
@@ -110,7 +105,7 @@ class PDFGraphLegend
             if (!empty($this->measures) && is_array($this->measures) && count($this->measures) > 0) {
                 foreach ($this->measures as $measure) {
                     // Draw legend box 
-                    $report->PdfRectangle($x, $y, $x + $this->settings->boxSize, $y + $this->settings->boxSize, 0, '0000', $this->settings->line, $measure->GetColorFill());
+                    $this->drawItemBox($report, $x, $y, $measure->GetColorFill());
                     // Draw legend label
                     $x += $this->settings->boxSize + $this->settings->padding;
                     $label = $measure->label;
@@ -136,15 +131,10 @@ class PDFGraphLegend
             foreach ($this->items as $item) {
                 $x = $this->settings->x1 + $this->settings->padding;
                 // Draw legend box 
-                $report->PdfRectangle($x, $y, $x + $this->settings->boxSize, $y + $this->settings->boxSize, 0, '0000', $this->settings->line, $item->fill);
+                $this->drawItemBox($report, $x, $y, $item->fill);
                 // Draw legend label
                 $x += $this->settings->boxSize + $this->settings->padding;
-                $label = $item->label;
-                if ($this->settings->isValueVisible) {
-                    // Draw value
-                    $itemValue = $item->getValue(0);
-                    $label .= ' (' . $itemValue .')';
-                }
+                $label = $this->getItemLabel($report, $item);
                 $report->PdfBox($x, $y, $this->settings->x2 - $this->settings->padding, $y + $this->settings->itemLabelHeight, $label, $this->settings->font, 'L', 'M', 0);
                 // Prepare to process next item
                 $y += $this->settings->itemLabelHeight + $this->settings->marginBetweenItems;
@@ -155,7 +145,7 @@ class PDFGraphLegend
                 foreach ($this->measures as $measure) {
                     $x = $this->settings->x1 + $this->settings->padding;
                     // Draw legend box 
-                    $report->PdfRectangle($x, $y, $x + $this->settings->boxSize, $y + $this->settings->boxSize, 0, '0000', $this->settings->line, $measure->GetColorFill());
+                    $this->drawItemBox($report, $x, $y, $measure->GetColorFill());
                     // Draw legend label
                     $x += $this->settings->boxSize + $this->settings->padding;
                     $label = $measure->label;
@@ -165,6 +155,27 @@ class PDFGraphLegend
                 }
             }
         }
+    }
+
+    /**
+     * Draws the color box (swatch) of an item, vertically centered on the item row ($y = top of the row)
+     */
+    private function drawItemBox(PDFReport $report, float $x, float $y, ?PDFFillSettings $fill) : void
+    {
+        $y += max(0.0, ($this->settings->itemLabelHeight - $this->settings->boxSize) / 2.0);
+        $report->PdfRectangle($x, $y, $x + $this->settings->boxSize, $y + $this->settings->boxSize, 0, '0000', $this->settings->line, $fill);
+    }
+
+    /**
+     * Returns the label of an item, followed by its formatted value if the values are visible, eg. "Gas (1.250)"
+     */
+    private function getItemLabel(PDFReport $report, PDFChartItem $item) : string
+    {
+        $label = $item->label;
+        if ($this->settings->isValueVisible && $item->hasValue(0)) {
+            $label .= ' (' . $report->FormatChartValue($this->settings->valueFormat, $item->getValue(0)) . ')';
+        }
+        return $label;
     }
 
     /**

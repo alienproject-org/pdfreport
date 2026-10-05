@@ -2,17 +2,11 @@
 
 namespace AlienProject\PDFReport;
 
-enum ChartStyleType : int
-{
-    case Line = 0;
-    case Area = 1;
-}
-
 /**
  * Class that generates a line graph
  * 
  * File :       PDFLineChart.php
- * @version  	1.0.11 - 29/09/2026
+ * @version  	1.0.12 - 05/10/2026
  */
 class PDFLineChart {
     /**
@@ -32,6 +26,8 @@ class PDFLineChart {
     public ?PDFLineSettings $symbolLine = null;             // Border line settings for the symbol used to mark each data point (null=no border)
     public ChartStyleType $style = ChartStyleType::Line;
     public float $opacity = 1.0;                            // Current opacity/transparent (alpha color component setting, range: 0.0 .. 1.0)
+    public string $axisFormat = '';                         // Format mask of the numeric axis labels (empty = default format, see PDFReport::FormatChartValue)
+    public bool $showAxis = true;                           // false = the axes (lines, ticks and labels) are not printed
     // Private properties
     private bool $YAutoScale = true;
 
@@ -79,20 +75,6 @@ class PDFLineChart {
      * The index parameter is the numeric index of the series (0..N-1) to use
      */
     private function calculateLinePoints(int $index): void {
-        // Calculate the max value
-        $max = 0.0;
-        foreach ($this->dataItems as $item) {
-            $itemValue = $item->getValue($index);
-            if ($itemValue > $max) {
-                $max = $itemValue;
-            }
-        }
-        if ($this->YAutoScale) {
-            // If auto scale is enabled, use the max value (auto scale)
-            if ($max > $this->maxValue) {
-                $this->maxValue = $max;
-            } 
-        }
 
         // Calculate position (X,Y) of each data point
         $totalLines = count($this->dataItems);
@@ -104,7 +86,8 @@ class PDFLineChart {
             $item->x1 = $this->x1 + ($item_index * $lineGap) + ($lineGap / 2);
             $item->x2 = $item->x1;
             // Y position
-            $item->percentage = $itemValue / $this->maxValue;               // Calculates the percentage of the value compared to the full scale
+            $range = $this->maxValue - $this->minValue;
+            $item->percentage = ($range > 0) ? max(0.0, ($itemValue - $this->minValue) / $range) : 0.0;     // Calculates the percentage of the value compared to the full scale
             $height = ($this->y2 - $this->y1) * $item->percentage;          // Calculate the height of the line
             $item->y1 = $this->y2 - $height;                                // Set the Y line position
             if ($item->y1 < $this->y1) {
@@ -127,18 +110,20 @@ class PDFLineChart {
             $lineItem2 = $this->dataItems[$t + 1];
             $x2 = $lineItem2->x1;
             $y2 = $lineItem2->y1;
-            // Check for values not null, not 0. 
-            if (empty($lineItem1->getValue($i))) {
+            // Missing values (eg. empty fields) : no point and no line to / from it. The value 0 is a valid value.
+            $hasValue1 = $lineItem1->hasValue($i);
+            $hasValue2 = $lineItem2->hasValue($i);
+            if (!$hasValue1 && !$hasValue2) continue;   // No line/point to draw
+            if (!$hasValue1) {
                 // Use point B
                 $x1 = $x2;
                 $y1 = $y2;
             }
-            if (empty($lineItem2->getValue($i))) {
+            if (!$hasValue2) {
                 // Use point A
                 $x2 = $x1;
                 $y2 = $y1;
             }
-            if (empty($lineItem1->getValue($i)) && empty($lineItem2->getValue($i))) continue;   // No line/point to draw
             // Draw line (or point)
             $report->PdfLine($x1, $y1, $x2, $y2, $measure->line);
             // Point symbol (optional, no symbol if the measure has no symbol style)
@@ -165,32 +150,51 @@ class PDFLineChart {
 
     private function renderMeasureAsArea($report, $i, $measure)
     {
-        // Draw chart area for measure $i
+        // Draw chart area for measure $i : a polygon for each run of consecutive points with a value (the missing values split the area)
         $report->SetOpacity($this->opacity, true, false);
-        $coord = [];
-        for ($t = 0; $t <= count($this->dataItems) - 1; $t++) {
-            // Point
-            $lineItem = $this->dataItems[$t];
-            $x1 = $lineItem->x1;
-            $y1 = $lineItem->y1;
-            if ($t == 0) {
-                // First polygon point
-                $coord[] = $x1;
-                $coord[] = $this->y2;
-            }
-            // Creates coordinate array for the polygon
-            $coord[] = $x1;
-            $coord[] = $y1;    
-            if ($t == count($this->dataItems) - 1) {
-                // Last polygon point
-                $coord[] = $x1;
-                $coord[] = $this->y2;
-            }
-        }
         $lineStyle = $measure->line->GetStyle();
         $colArray = $measure->GetColorFill()->GetStartColor();
-        $report->pdf->Polygon($coord, 'DF', [ 'all' => $lineStyle ], $colArray);
+        $runs = [];
+        $run = [];
+        foreach ($this->dataItems as $lineItem) {
+            if ($lineItem->hasValue($i)) {
+                $run[] = $lineItem;
+            } else if (count($run) > 0) {
+                $runs[] = $run;
+                $run = [];
+            }
+        }
+        if (count($run) > 0) {
+            $runs[] = $run;
+        }
+        foreach ($runs as $run) {
+            // First polygon point on the X axis, the data points, last polygon point on the X axis
+            $coord = [ $run[0]->x1, $this->y2 ];
+            foreach ($run as $lineItem) {
+                $coord[] = $lineItem->x1;
+                $coord[] = $lineItem->y1;
+            }
+            $coord[] = $run[count($run) - 1]->x1;
+            $coord[] = $this->y2;
+            $report->pdf->Polygon($coord, 'DF', [ 'all' => $lineStyle ], $colArray);
+        }
         $report->ResetOpacity();
+    }
+
+    /**
+     * Auto scale (maxValue = 0) : the full scale is the max value of all the measures, rounded up to a "round" step between the ticks
+     */
+    private function calculateScale(): void {
+        if (!$this->YAutoScale) return;
+        $max = $this->minValue;
+        foreach ($this->measures as $index => $measure) {
+            foreach ($this->dataItems as $item) {
+                if ($item->hasValue($index) && $item->getValue($index) > $max) {
+                    $max = $item->getValue($index);
+                }
+            }
+        }
+        $this->maxValue = PDFAxisSettings::NiceMaxValue($this->minValue, $max, (int)$this->ticksCount);
     }
 
     public function render(?PDFReport $report = null) : void 
@@ -198,7 +202,8 @@ class PDFLineChart {
         if ($report == null) return;
         $pdf = $report->pdf;
         if ($pdf == null) return;
-        
+
+        $this->calculateScale();
         if ($this->axisLine == null) {
             // If not set, Use default line settings for axis
             $this->axisLine = $report->GetDefaultLine();
@@ -219,13 +224,26 @@ class PDFLineChart {
                 $this->renderMeasureAsLine($report, $i, $measure);
         }
 
-        // Title
+        // Title (single line, above the chart)
         if ($this->title != '') {
-            $cellHeightRatio = $pdf->getCellHeightRatio();
-            $singleLineHeight = $this->titleFont->size * $cellHeightRatio;
-            $report->pdfBox($this->x1, $this->y1 - $singleLineHeight, $this->x2, $this->y1, $this->title, $this->titleFont, 'C', 'M', 0);
+            $singleLineHeight = $report->GetFontLineHeight($this->titleFont);
+            $report->pdfBox($this->x1, $this->y1 - PDFReport::CHART_TITLE_MARGIN - $singleLineHeight, $this->x2, $this->y1 - PDFReport::CHART_TITLE_MARGIN, $this->title, $this->titleFont, 'C', 'M', 0);
         }
 
+        if ($this->showAxis) {
+            $this->renderAxes($report);
+        }
+
+        // Print legend
+        if ($this->legend != null)
+            $this->legend->render($report);
+    }
+
+    /**
+     * Draws the axes with their ticks and labels
+     */
+    private function renderAxes(PDFReport $report) : void
+    {
         // Draw X-Y axis
         if ($this->axisFont != null) {
             // Use custom axis font
@@ -238,16 +256,13 @@ class PDFLineChart {
         // Draw Y axis with labels (left side)
         $axisSettings = new PDFAxisSettings($this->x1 - 15.0, $this->y1, $this->x1, $this->y2, $this->minValue, $this->maxValue, '', $axisFont, true, true, $this->axisLine);
         $axisSettings->ticksCount = $this->ticksCount;
+        $axisSettings->valueFormat = $this->axisFormat;
         $axis = new PDFGraphAxis($axisSettings);            
         $axis->render($report);
         // Draw X axis with labels (bottom side)
         $axisSettings = new PDFAxisSettings($this->x1, $this->y2, $this->x2, $this->y2 + 15.0, $this->minValue, $this->maxValue, '', $axisFont, true, false, $this->axisLine, $this->dataItems);
         $axis = new PDFGraphAxis($axisSettings);
         $axis->render($report);
-    
-        // Print legend
-        if ($this->legend != null)
-            $this->legend->render($report);
     }
 
     /**

@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Class for managing the configuration of a chart axis with labels
  * 
  * File :       PDFAxisSettings.php
- * @version  	1.0.11 - 29/09/2026
+ * @version  	1.0.12 - 05/10/2026
  */
 class PDFAxisSettings 
 {    
@@ -17,6 +17,7 @@ class PDFAxisSettings
     public float $labelWidth = 10.0;                    // mm
     public float $titleHeight = 6.0;                    // mm
     public bool $isLabelVisible = true;
+    public string $valueFormat = '';                    // Format mask of the numeric labels (eg. "F1", "I", "C0 $"), empty = default format (see PDFReport::FormatChartValue)
     
     /**
      * Class constructor
@@ -54,6 +55,34 @@ class PDFAxisSettings
         }   
     }
     
+    /**
+     * Returns the full scale value of an auto scale axis: the max value rounded up so that the step between the ticks 
+     * is a "round" number (1, 2, 2.5 or 5 x 10^n), eg. max 265 with 5 ticks > 300 (labels 0, 75, 150, 225, 300).
+     *
+     * @param float $minValue       Minimum value of the axis
+     * @param float $maxValue       Max data value
+     * @param int $ticksCount       Number of ticks (labels) of the axis
+     * @return float                Full scale value
+     */
+    public static function NiceMaxValue(float $minValue, float $maxValue, int $ticksCount): float
+    {
+        $intervals = max(1, $ticksCount - 1);
+        $range = $maxValue - $minValue;
+        if ($range <= 0) {
+            return $minValue + $intervals;      // No data (or all the values equal to the min value): step 1
+        }
+        $rawStep = $range / $intervals;
+        $magnitude = pow(10, floor(log10($rawStep)));
+        $step = 10 * $magnitude;
+        foreach ([ 1, 2, 2.5, 5, 10 ] as $multiplier) {
+            if ($multiplier * $magnitude >= $rawStep - 1e-12) {
+                $step = $multiplier * $magnitude;
+                break;
+            }
+        }
+        return $minValue + ($step * $intervals);
+    }
+
     /*
     public function setSize(float $x1, float  $y1, float  $x2, float  $y2) 
     {

@@ -6,7 +6,7 @@ namespace AlienProject\PDFReport;
  * Gauge chart class
  * 
  * File :       PDFGaugeChart.php
- * @version  	1.0.11 - 29/09/2026
+ * @version  	1.0.12 - 05/10/2026
  */
 class PDFGaugeChart {
     
@@ -21,6 +21,9 @@ class PDFGaugeChart {
     // Public settings
     public ?PDFGraphLegend $legend = null;      // null=no legend (the legend lists the chart segments)
     public string $valueFormat = '';            // Value format mask (eg. "F2", "P0", "C2 €"), empty=1 decimal (default)
+    public ?PDFFontSettings $axisFont = null;   // Font of the min / max labels (null = Helvetica 8 black)
+    public string $axisFormat = '';             // Format mask of the min / max labels (empty = default format, see PDFReport::FormatChartValue)
+    public bool $showAxis = true;               // false = the min / max labels are not printed
 
     // Semicircular gauge angles
     private const START_ANGLE = -90;            // Starting angle (left)
@@ -121,8 +124,11 @@ class PDFGaugeChart {
         if ($this->border)
             $sectorStyle .= 'D';
 
-        // Draw title
-        $report->PdfBox($this->x1, $this->y1 - 8, $this->x2, $this->y1, $this->title, $this->titleFont, 'Center', 'Top', 0);
+        // Draw title (single line, above the chart)
+        if ($this->title != '') {
+            $singleLineHeight = $report->GetFontLineHeight($this->titleFont);
+            $report->PdfBox($this->x1, $this->y1 - PDFReport::CHART_TITLE_MARGIN - $singleLineHeight, $this->x2, $this->y1 - PDFReport::CHART_TITLE_MARGIN, $this->title, $this->titleFont, 'Center', 'Middle', 0);
+        }
 
         // Draw background gauge (full semicircle)
         if ($this->backgroundFill != null) {
@@ -211,11 +217,14 @@ class PDFGaugeChart {
         $pdf->Text($this->xc - 8, $centerY + 8, $percentageText);
         */
 
-        $font = new PDFFontSettings('helvetica', '', 8, '000000');
-        $report->PdfBox($this->xc - $this->radius, $this->yc + 1, 
-                        $this->xc, $this->yc + 6, number_format($this->minValue, 0), $font, 'L', 'C', 0);  
-        $report->PdfBox($this->xc, $this->yc + 1, 
-                        $this->xc + $this->radius, $this->yc + 6, number_format($this->maxValue, 0), $font, 'R', 'C', 0);
+        // Min / max labels (below the start and the end of the gauge)
+        if (!$this->showAxis) return;
+        $font = ($this->axisFont != null) ? $this->axisFont : new PDFFontSettings('helvetica', '', 8, '000000');
+        $labelHeight = max(5.0, $report->GetFontLineHeight($font));
+        $report->PdfBox($this->xc - $this->radius, $this->yc + 1,
+                        $this->xc, $this->yc + 1 + $labelHeight, $report->FormatChartValue($this->axisFormat, $this->minValue), $font, 'L', 'C', 0);
+        $report->PdfBox($this->xc, $this->yc + 1,
+                        $this->xc + $this->radius, $this->yc + 1 + $labelHeight, $report->FormatChartValue($this->axisFormat, $this->maxValue), $font, 'R', 'C', 0);
     }
 
     /**

@@ -3,7 +3,7 @@
     "description": "A library that allows you to generate PDF reports from an XML template describing the document, with placeholders for data.",
     "type": "library",
     "license": "LGPL-3.0-or-later",
-	"version": "1.0.11",
+	"version": "1.0.12",
     "authors": [
         {
             "name": "Alien Project Team - 2026",
@@ -11,7 +11,7 @@
         }
     ],
     "require": {
-        "php": ">=8.0",
+        "php": ">=8.1",
         "tecnickcom/tcpdf": "^6.9"
     },
     "autoload": {
